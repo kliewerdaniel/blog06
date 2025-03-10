@@ -19,6 +19,9 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  minimumScale: 1,
+  userScalable: true,
+  themeColor: "#0a0a0a",
 };
 
 export const metadata: Metadata = {
@@ -157,25 +160,61 @@ function Header() {
         <Link href="/" className="font-bold text-foreground hover:text-primary">
           Daniel Kliewer
         </Link>
-        <nav>
-          <ul className="flex gap-6">
+        
+        {/* Mobile Navigation - Hamburger Menu */}
+        <nav className="mobile-nav md:hidden">
+          <input type="checkbox" id="nav-toggle" className="nav-toggle sr-only" />
+          <label htmlFor="nav-toggle" className="nav-toggle-label" aria-label="Toggle navigation menu">
+            <span className="hamburger">
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+            </span>
+          </label>
+          <ul className="mobile-menu">
             <li>
-              <Link href="/" className="hover:text-primary transition-colors">
+              <Link href="/" className="mobile-link">
                 Home
               </Link>
             </li>
             <li>
-              <Link href="/about" className="hover:text-primary transition-colors">
+              <Link href="/about" className="mobile-link">
                 About
               </Link>
             </li>
             <li>
-              <Link href="/blog" className="hover:text-primary transition-colors">
+              <Link href="/blog" className="mobile-link">
                 Blog
               </Link>
             </li>
             <li>
-              <Link href="/contact" className="hover:text-primary transition-colors">
+              <Link href="/contact" className="mobile-link">
+                Contact
+              </Link>
+            </li>
+          </ul>
+        </nav>
+        
+        {/* Desktop Navigation */}
+        <nav className="hidden md:block">
+          <ul className="flex gap-6">
+            <li>
+              <Link href="/" className="hover:text-primary transition-colors text-base">
+                Home
+              </Link>
+            </li>
+            <li>
+              <Link href="/about" className="hover:text-primary transition-colors text-base">
+                About
+              </Link>
+            </li>
+            <li>
+              <Link href="/blog" className="hover:text-primary transition-colors text-base">
+                Blog
+              </Link>
+            </li>
+            <li>
+              <Link href="/contact" className="hover:text-primary transition-colors text-base">
                 Contact
               </Link>
             </li>
@@ -195,16 +234,16 @@ function Footer() {
       <div className="container">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
-            <p className="text-muted-foreground">© {currentYear} Daniel Kliewer. All rights reserved.</p>
+            <p className="text-muted-foreground text-center md:text-left">© {currentYear} Daniel Kliewer. All rights reserved.</p>
           </div>
           <div className="flex gap-4">
             <a href="https://github.com/kliewerdaniel" target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="text-muted-foreground hover:text-primary transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
               </svg>
             </a>
             <a href="mailto:danielkliewer@gmail.com" aria-label="Email" className="text-muted-foreground hover:text-primary transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                 <polyline points="22,6 12,13 2,6"></polyline>
               </svg>
