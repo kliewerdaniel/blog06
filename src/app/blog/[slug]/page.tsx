@@ -92,9 +92,15 @@ export async function generateStaticParams() {
     }));
 }
 
-export default async function BlogPost({ params }: { params: { slug: string } }) {
-  const resolvedParams = await params;
-  const { slug } = resolvedParams;
+// Use a more specific type for static exports
+type BlogPostProps = {
+  params: {
+    slug: string;
+  };
+}
+
+export default function BlogPost({ params }: BlogPostProps) {
+  const { slug } = params;
   const postsDirectory = path.join(process.cwd(), "_posts");
   const filePath = path.join(postsDirectory, `${slug}.md`);
   

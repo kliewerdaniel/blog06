@@ -104,7 +104,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     // Cleanup function
     return () => {
       const wrappers = currentContainerRef.querySelectorAll('div[data-scroll-listener="true"]');
-      wrappers.forEach((wrapper) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      wrappers.forEach((element) => {
         window.removeEventListener('scroll', () => {});
       });
     };
@@ -117,7 +118,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         rehypePlugins={[
           rehypeRaw,
           rehypeSlug,
-          [rehypeAutolinkHeadings, { behavior: 'wrap' }],
+          [rehypeAutolinkHeadings, { behavior: 'wrap' as const }],
           [rehypeHighlight, { ignoreMissing: true }]
         ]}
       >

@@ -2,6 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { MetadataRoute } from 'next';
 
+// Force this route to be static for export
+export const dynamic = "force-static";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://danielkliewer.com';
   
