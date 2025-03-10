@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import "../styles/codeHighlight.css";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -141,6 +143,11 @@ export default function RootLayout({
           }}
         />
       </head>
+      {/* Add Google Analytics (GA4) with privacy-compliant configuration */}
+      {/* Replace G-XXXXXXXXXX with your actual GA4 measurement ID from Google Analytics admin console */}
+      <GoogleAnalytics measurementId="GTM-T5J5JWX" />
+      {/* Component to track page views across route changes */}
+      <AnalyticsTracker />
       <body
         className={bodyClasses}
         suppressHydrationWarning={true}
