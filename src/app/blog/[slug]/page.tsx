@@ -7,6 +7,7 @@ import { BlogJsonLd } from "@/components/BlogJsonLd";
 import { Metadata, ResolvingMetadata } from "next/types";
 import BreadcrumbNavigation from "@/components/BreadcrumbNavigation";
 import RelatedPosts from "@/components/RelatedPosts";
+import SocialShare from "@/components/SocialShare";
 import { RelatedPost } from "@/types/blog";
 
 type Props = {
@@ -253,6 +254,13 @@ export default function BlogPost({ params }: BlogPostProps) {
                 {readingTime} min read
               </span>
             </div>
+            
+            {/* Social Sharing Buttons */}
+            <SocialShare 
+              title={title}
+              summary={`Check out this article: ${title}`}
+              className="mt-4" 
+            />
           </header>
           
           <div className="mb-12">
@@ -282,6 +290,15 @@ export default function BlogPost({ params }: BlogPostProps) {
           {relatedPosts.length > 0 && (
             <RelatedPosts posts={relatedPosts} />
           )}
+          
+          {/* Social Sharing Buttons (Bottom) */}
+          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+            <SocialShare 
+              title={title}
+              summary={`Check out this article: ${title}`}
+              className="justify-center" 
+            />
+          </div>
           
           {/* Back to Blog link */}
           <div className="mt-12 text-center">
