@@ -170,7 +170,6 @@ type BlogPostProps = {
 }
 
 import { Suspense } from "react";
-import { SearchParamsProvider } from "@/components/SearchParamsProvider";
 
 export default function BlogPost({ params }: BlogPostProps) {
   const { slug } = params;
