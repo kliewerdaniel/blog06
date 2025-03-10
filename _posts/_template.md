@@ -1,7 +1,7 @@
 ---
 layout: post-redesign
 title: "Your Post Title Here - Include Primary Keyword"
-description: "A compelling meta description (150-160 characters) that includes your primary keyword and encourages clicks from search results."
+description: "A compelling meta description (150-160 characters) that includes your primary keyword, summarizes the content, and encourages clicks from search results."
 date: YYYY-MM-DD HH:MM:SS -0500
 image: /static/images/your-featured-image.jpg
 categories: [Category1, Category2]

@@ -2,6 +2,7 @@
 layout: post
 title:  Text Adventure
 date:   2025-03-03 07:42:44 -0500
+description: "Build a web application that generates interactive text adventures from images using Next.js, Python, and local AI models with Ollama. Complete with installation and deployment instructions."
 ---
 
 # Text Adventure Generator Web Application
@@ -91,4 +92,3 @@ This application is configured for deployment on Netlify:
 3. The API executes the Python script with the provided parameters
 4. The Python script generates a text adventure based on the images
 5. The results are returned to the web interface for display
-

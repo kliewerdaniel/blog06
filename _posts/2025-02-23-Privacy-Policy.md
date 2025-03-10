@@ -2,6 +2,7 @@
 layout: post
 title:  Privacy Policy
 date:   2025-02-23 07:42:44 -0500
+description: "Learn how the AI Filename Generator Chrome Extension processes your data locally, requires no external servers, and implements strict privacy measures to protect your information."
 ---
 # Privacy Policy for AI Filename Generator
 

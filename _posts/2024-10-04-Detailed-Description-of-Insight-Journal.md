@@ -2,6 +2,7 @@
 date: 2024-10-04 07:40:44 -0500
 layout: post
 title: Detailed Description of Insight Journal
+description: "Discover how Insight Journal enhances personal reflection through locally-hosted LLMs, offering AI-generated feedback while maintaining privacy and control over your data."
 ---
 # **Developing an AI-Integrated Insight Journal: Enhancing Personal Reflection through Locally Hosted Language Models**
 

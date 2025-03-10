@@ -2,6 +2,7 @@
 layout: post
 title:  Building an AI-Powered Filename Generator Chrome Extension
 date:   2025-02-25 07:42:44 -0500
+description: "Learn how to create a Chrome extension that uses AI to automatically generate meaningful filenames when downloading files, with full code examples and implementation details."
 ---
 # Building an AI-Powered Filename Generator Chrome Extension
 

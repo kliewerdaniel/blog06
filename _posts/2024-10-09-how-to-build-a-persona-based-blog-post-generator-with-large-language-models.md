@@ -2,6 +2,7 @@
 layout: post
 title:  "How to Build a Persona-Based Blog Post Generator Using Large Language Models"
 date:   2024-10-09 05:40:44 -0500
+description: "Learn to create a Python-based tool that analyzes writing samples and generates personalized blog content using LLMs like Llama 3.2, with complete code examples and implementation steps."
 ---
 ## How to Build a Persona-Based Blog Post Generator Using Large Language Models
 

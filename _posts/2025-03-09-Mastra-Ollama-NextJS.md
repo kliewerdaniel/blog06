@@ -2,6 +2,7 @@
 layout: post
 title:  Building an AI-Powered Next.js Application with Mastra and Ollama
 date:   2025-03-09 07:42:44 -0500
+description: "Learn to build a complete Next.js application that uses Mastra and Ollama to create AI agents for task automation with step-by-step code examples and best practices."
 ---
 # Building an AI-Powered Next.js Application with Mastra and Ollama
 
