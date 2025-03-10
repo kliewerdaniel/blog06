@@ -5,6 +5,9 @@ import Link from "next/link";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { BlogJsonLd } from "@/components/BlogJsonLd";
 import { Metadata, ResolvingMetadata } from "next/types";
+import BreadcrumbNavigation from "@/components/BreadcrumbNavigation";
+import RelatedPosts from "@/components/RelatedPosts";
+import { RelatedPost } from "@/types/blog";
 
 type Props = {
   params: { slug: string };
@@ -92,6 +95,73 @@ export async function generateStaticParams() {
     }));
 }
 
+// Function to find related posts based on categories and tags
+function findRelatedPosts(currentSlug: string, currentCategories: string[] = [], currentTags: string[] = []): RelatedPost[] {
+  const postsDirectory = path.join(process.cwd(), "_posts");
+  const filenames = fs.readdirSync(postsDirectory);
+  
+  // Score map to rank related posts
+  const relatedScores: Map<string, { score: number; post: RelatedPost }> = new Map();
+  
+  filenames
+    .filter(filename => filename.endsWith(".md") && !filename.startsWith("_template") && !filename.includes(currentSlug))
+    .forEach(filename => {
+      const filePath = path.join(postsDirectory, filename);
+      const fileContents = fs.readFileSync(filePath, "utf8");
+      const { data, content } = matter(fileContents);
+      
+      const slug = filename.replace(/\.md$/, "");
+      const postCategories = data.categories || [];
+      const postTags = data.tags || [];
+      
+      // Calculate relevance score - more shared categories/tags = higher score
+      let score = 0;
+      
+      // Category matches (weighted more heavily)
+      postCategories.forEach((category: string) => {
+        if (currentCategories.includes(category)) {
+          score += 2;
+        }
+      });
+      
+      // Tag matches
+      postTags.forEach((tag: string) => {
+        if (currentTags.includes(tag)) {
+          score += 1;
+        }
+      });
+      
+      // Only consider posts with a relevance score
+      if (score > 0) {
+        // Get excerpt
+        const excerpt = content
+          .replace(/[#*`_]/g, '')
+          .split('\n\n')
+          .find(p => p.trim() && !p.includes('#')) || '';
+          
+        const shortExcerpt = excerpt.length > 120 ? 
+          `${excerpt.substring(0, 117)}...` : excerpt;
+        
+        relatedScores.set(slug, { 
+          score,
+          post: {
+            slug,
+            title: data.title || "Untitled",
+            date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+            excerpt: shortExcerpt,
+            categories: postCategories,
+          }
+        });
+      }
+    });
+  
+  // Convert to array, sort by score, and take top 3
+  return Array.from(relatedScores.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(item => item.post);
+}
+
 // Use a more specific type for static exports
 type BlogPostProps = {
   params: {
@@ -111,6 +181,23 @@ export default function BlogPost({ params }: BlogPostProps) {
     const title = data.title || "Untitled";
     // Use a fixed date if none provided to avoid hydration mismatches
     const date = data.date ? new Date(data.date) : new Date('2025-01-01T00:00:00Z');
+    const categories = data.categories || [];
+    const tags = data.tags || [];
+    
+    // Find related posts
+    const relatedPosts = findRelatedPosts(slug, categories, tags);
+    
+    // Calculate estimated reading time
+    const wordsPerMinute = 200;
+    const wordCount = content.trim().split(/\s+/).length;
+    const readingTime = Math.ceil(wordCount / wordsPerMinute);
+    
+    // Create breadcrumb items
+    const breadcrumbItems = [
+      { label: 'Home', href: '/' },
+      { label: 'Blog', href: '/blog' },
+      { label: title, href: `/blog/${slug}`, isCurrent: true }
+    ];
     
     return (
       <div className="container mx-auto px-4 py-12">
@@ -120,28 +207,84 @@ export default function BlogPost({ params }: BlogPostProps) {
           datePublished={date.toISOString()}
           authorName="Daniel Kliewer"
           slug={slug}
-          tags={data.tags || []}
-          categories={data.categories || []}
+          tags={tags}
+          categories={categories}
         />
         
-        <Link href="/blog" className="text-primary hover:underline mb-6 inline-block">
-          ← Back to Blog
-        </Link>
+        {/* Breadcrumb Navigation */}
+        <BreadcrumbNavigation items={breadcrumbItems} />
         
-        <article className="mt-8 max-w-3xl mx-auto">
-          <h1 className="text-4xl font-bold mb-4">{title}</h1>
-          <time dateTime={date.toISOString()} className="text-muted-foreground block mb-8">
-            {/* Use a fixed date format to prevent hydration mismatches caused by locale differences */}
-            {new Intl.DateTimeFormat('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long', 
-              day: 'numeric',
-              timeZone: 'UTC' // Ensure consistent timezone between server and client
-            }).format(date)}
-          </time>
+        <article className="max-w-3xl mx-auto">
+          <header className="mb-8">
+            {categories.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {categories.map((category: string, idx: number) => (
+                  <Link 
+                    key={idx}
+                    href={`/blog?category=${encodeURIComponent(category)}`}
+                    className="inline-block text-xs px-2 py-1 bg-primary/10 text-primary rounded-full"
+                  >
+                    {category}
+                  </Link>
+                ))}
+              </div>
+            )}
+            
+            <h1 className="text-4xl font-bold mb-4">{title}</h1>
+            
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <time dateTime={date.toISOString()}>
+                {new Intl.DateTimeFormat('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long', 
+                  day: 'numeric',
+                  timeZone: 'UTC' // Ensure consistent timezone between server and client
+                }).format(date)}
+              </time>
+              
+              <span className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-1">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                {readingTime} min read
+              </span>
+            </div>
+          </header>
           
-          <MarkdownRenderer content={content} />
+          <div className="mb-12">
+            <MarkdownRenderer content={content} />
+          </div>
+          
+          {tags.length > 0 && (
+            <div className="mb-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+              <h2 className="text-lg font-semibold mb-3">Tags</h2>
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag: string, idx: number) => (
+                  <Link
+                    key={idx}
+                    href={`/blog?tag=${encodeURIComponent(tag)}`}
+                    className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-sm"
+                  >
+                    {tag}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Related Posts */}
+          {relatedPosts.length > 0 && (
+            <RelatedPosts posts={relatedPosts} />
+          )}
+          
+          {/* Back to Blog link */}
+          <div className="mt-12 text-center">
+            <Link href="/blog" className="text-primary hover:underline">
+              ← Back to Blog
+            </Link>
+          </div>
         </article>
       </div>
     );

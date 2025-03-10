@@ -1,4 +1,4 @@
-'use client';
+import React from 'react';
 
 interface BlogJsonLdProps {
   title: string;
@@ -8,9 +8,10 @@ interface BlogJsonLdProps {
   slug: string;
   tags?: string[];
   categories?: string[];
+  imageUrl?: string;
 }
 
-export function BlogJsonLd({
+export const BlogJsonLd: React.FC<BlogJsonLdProps> = ({
   title,
   description,
   datePublished,
@@ -18,52 +19,39 @@ export function BlogJsonLd({
   slug,
   tags = [],
   categories = [],
-}: BlogJsonLdProps) {
-  const canonical = `https://danielkliewer.com/blog/${slug}`;
+  imageUrl
+}) => {
+  const canonicalUrl = `https://danielkliewer.com/blog/${slug}`;
   
-  // Format combined keywords from tags and categories
-  const keywords = [...tags, ...categories].join(', ');
-  
-  // Create schema.org Article JSON-LD structured data
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
-    mainEntityOfPage: {
-      '@type': 'WebPage',
-      '@id': canonical,
-    },
     headline: title,
     description: description,
-    image: [
-      'https://danielkliewer.com/og-image.jpg', // Default OG image
-    ],
+    image: imageUrl ? [imageUrl] : undefined,
     datePublished: datePublished,
-    dateModified: datePublished, // Assuming no explicit modification date is available
     author: {
       '@type': 'Person',
       name: authorName,
-      url: 'https://danielkliewer.com/about',
+      url: 'https://danielkliewer.com/about'
     },
     publisher: {
-      '@type': 'Organization',
-      name: 'Daniel Kliewer',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://danielkliewer.com/logo.png', // If available
-        width: 112,
-        height: 112,
-      },
+      '@type': 'Person',
+      name: authorName,
+      url: 'https://danielkliewer.com'
     },
-    keywords: keywords,
-    inLanguage: 'en-US',
+    url: canonicalUrl,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': canonicalUrl
+    },
+    keywords: [...tags, ...categories].join(', ')
   };
 
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(jsonLd),
-      }}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
     />
   );
-}
+};
