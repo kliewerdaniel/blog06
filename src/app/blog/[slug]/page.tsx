@@ -169,6 +169,9 @@ type BlogPostProps = {
   };
 }
 
+import { Suspense } from "react";
+import { SearchParamsProvider } from "@/components/SearchParamsProvider";
+
 export default function BlogPost({ params }: BlogPostProps) {
   const { slug } = params;
   const postsDirectory = path.join(process.cwd(), "_posts");
@@ -262,13 +265,15 @@ export default function BlogPost({ params }: BlogPostProps) {
               <h2 className="text-lg font-semibold mb-3">Tags</h2>
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag: string, idx: number) => (
-                  <Link
-                    key={idx}
-                    href={`/blog?tag=${encodeURIComponent(tag)}`}
-                    className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-sm"
-                  >
-                    {tag}
-                  </Link>
+                  <Suspense key={idx} fallback={<span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-sm">{tag}</span>}>
+                    <Link
+                      key={idx}
+                      href={`/blog?tag=${encodeURIComponent(tag)}`}
+                      className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-sm"
+                    >
+                      {tag}
+                    </Link>
+                  </Suspense>
                 ))}
               </div>
             </div>
