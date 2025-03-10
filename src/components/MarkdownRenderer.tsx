@@ -25,16 +25,17 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     if (!containerRef.current) return;
     
     const codeBlocks = containerRef.current.querySelectorAll('pre > code');
+    const currentContainerRef = containerRef.current; // Store ref value to use in cleanup
     
     codeBlocks.forEach((codeBlock) => {
       const pre = codeBlock.parentElement;
       if (!pre || pre.querySelector('.copy-button')) return;
       
       // Create wrapper div for positioning
-      const wrapper = document.createElement('div');
-      wrapper.className = 'relative my-6';
-      pre.parentNode?.insertBefore(wrapper, pre);
-      wrapper.appendChild(pre);
+      const wrapperDiv = document.createElement('div');
+      wrapperDiv.className = 'relative my-6';
+      pre.parentNode?.insertBefore(wrapperDiv, pre);
+      wrapperDiv.appendChild(pre);
       
       pre.className = 'p-4 rounded-md bg-gray-800 text-gray-200 overflow-x-auto';
       
@@ -54,7 +55,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         </svg>
       `;
       
-      wrapper.appendChild(copyButton);
+      wrapperDiv.appendChild(copyButton);
       
       // Add copy functionality
       copyButton.addEventListener('click', async () => {
@@ -84,7 +85,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       
       // Add scroll event listener to show/hide button
       const updateButtonVisibility = () => {
-        const rect = wrapper.getBoundingClientRect();
+        const rect = wrapperDiv.getBoundingClientRect();
         const isVisible = 
           rect.top < window.innerHeight &&
           rect.bottom > 0;
@@ -97,14 +98,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       updateButtonVisibility(); // Initial check
       
       // Store the event listener reference for cleanup
-      wrapper.dataset.scrollListener = 'true';
+      wrapperDiv.dataset.scrollListener = 'true';
     });
     
     // Cleanup function
     return () => {
-      if (!containerRef.current) return;
-      
-      const wrappers = containerRef.current.querySelectorAll('div[data-scroll-listener="true"]');
+      const wrappers = currentContainerRef.querySelectorAll('div[data-scroll-listener="true"]');
       wrappers.forEach((wrapper) => {
         window.removeEventListener('scroll', () => {});
       });

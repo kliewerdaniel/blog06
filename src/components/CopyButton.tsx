@@ -44,11 +44,6 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
         codeRect.top < window.innerHeight &&
         codeRect.bottom > 0;
       
-      // Check if code block is fully within the container
-      const isWithinContainer = 
-        codeRect.top >= containerRect.top &&
-        codeRect.bottom <= containerRect.bottom;
-      
       setVisible(isCodeVisible);
       
       if (isCodeVisible) {

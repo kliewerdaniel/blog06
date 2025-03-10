@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Metadata } from "next";
 
 // Separate viewport export as recommended by Next.js
@@ -37,7 +36,7 @@ export default function ContactPage() {
       <div className="max-w-2xl mx-auto">
         <div className="prose prose-lg dark:prose-invert mb-12">
           <p>
-            I'm passionate about leveraging technology to solve complex problems. If you're interested in discussing:
+            I&apos;m passionate about leveraging technology to solve complex problems. If you&apos;re interested in discussing:
           </p>
           <ul>
             <li>Machine Learning projects and implementations</li>
@@ -47,7 +46,7 @@ export default function ContactPage() {
             <li>Potential collaborations or opportunities</li>
           </ul>
           <p>
-            I'd love to connect! Whether you have a specific project in mind or just want to chat about the latest in tech, 
+            I&apos;d love to connect! Whether you have a specific project in mind or just want to chat about the latest in tech, 
             feel free to reach out through the channels below.
           </p>
         </div>

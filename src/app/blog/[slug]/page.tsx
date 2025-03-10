@@ -72,7 +72,8 @@ export async function generateMetadata(
         canonical: canonical,
       },
     };
-  } catch (error) {
+  } catch {
+    // Removed unused 'error' variable
     return {
       title: "Post Not Found | Daniel Kliewer",
       description: "The blog post you're looking for does not exist.",
@@ -138,11 +139,12 @@ export default async function BlogPost({ params }: { params: { slug: string } })
         </article>
       </div>
     );
-  } catch (error) {
+  } catch {
+    // Removed unused 'error' variable
     return (
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-8">Post Not Found</h1>
-        <p>Sorry, the blog post you're looking for does not exist.</p>
+        <p>Sorry, the blog post you&apos;re looking for does not exist.</p>
         <Link href="/blog" className="text-primary hover:underline mt-4 inline-block">
           ← Back to Blog
         </Link>

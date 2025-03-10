@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Metadata } from "next";
 
@@ -40,8 +39,8 @@ export default function AboutPage() {
       <section className="mb-12">
         <h2 className="text-2xl font-bold mb-6">Daniel Kliewer: A Journey Through Technology and Creativity</h2>
         <p className="text-lg mb-6">
-          I'm a multifaceted professional with a rich background in data annotation, software development, 
-          and artificial intelligence. With over a decade of experience in data annotation, I've honed my 
+          I&apos;m a multifaceted professional with a rich background in data annotation, software development, 
+          and artificial intelligence. With over a decade of experience in data annotation, I&apos;ve honed my 
           skills in understanding and structuring data, providing invaluable insights into machine learning 
           processes. My passion for technology is complemented by a deep appreciation for art, allowing me 
           to approach problems with both analytical precision and creative flair.
@@ -187,7 +186,7 @@ export default function AboutPage() {
         
         <div className="bg-muted p-6 rounded-lg border-l-4 border-accent my-8">
           <blockquote className="text-xl italic font-medium">
-            "Technology should be accessible and serve as a tool for understanding human behavior."
+            &quot;Technology should be accessible and serve as a tool for understanding human behavior.&quot;
           </blockquote>
         </div>
         
@@ -199,7 +198,7 @@ export default function AboutPage() {
         </p>
         
         <p className="text-lg mb-6">
-          Through my journey of overcoming challenges and rebuilding, I've developed a unique perspective that 
+          Through my journey of overcoming challenges and rebuilding, I&apos;ve developed a unique perspective that 
           informs my approach to technology and problem-solving. I strive to create solutions that not only 
           meet technical requirements but also consider the human element, making technology more accessible 
           and beneficial for all.
@@ -224,7 +223,7 @@ export default function AboutPage() {
       <section className="mt-16 text-center">
         <h2 className="text-2xl font-bold mb-4">Interested in working together?</h2>
         <p className="text-lg mb-6 max-w-2xl mx-auto">
-          I'm always open to discussing new projects, creative ideas, or opportunities to collaborate on innovative solutions.
+          I&apos;m always open to discussing new projects, creative ideas, or opportunities to collaborate on innovative solutions.
         </p>
         <Link href="/contact" className="btn btn-primary">
           Get In Touch
