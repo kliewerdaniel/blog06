@@ -52,7 +52,7 @@ export const metadata: Metadata = {
 };
 
 // Function to get blog posts
-async function getBlogPosts() {
+async function getBlogPosts(count = 3, skip = 0) {
   const postsDirectory = path.join(process.cwd(), "_posts");
   const filenames = fs.readdirSync(postsDirectory);
   
@@ -61,17 +61,34 @@ async function getBlogPosts() {
     .map(filename => {
       const filePath = path.join(postsDirectory, filename);
       const fileContents = fs.readFileSync(filePath, "utf8");
-      const { data } = matter(fileContents);
+      const { data, content } = matter(fileContents);
+      
+      // Extract excerpt from content if not provided in frontmatter
+      let excerpt = data.excerpt;
+      if (!excerpt) {
+        // Simple excerpt extraction - first paragraph that's not empty and not a heading
+        excerpt = content
+          .split('\n\n')
+          .find(p => p.trim() && !p.startsWith('#'))
+          ?.replace(/[#*`_]/g, '')
+          .substring(0, 160);
+      }
       
       return {
         slug: filename.replace(/\.md$/, ""),
         title: data.title,
         date: data.date,
+        image: data.image,
+        excerpt: excerpt,
+        categories: data.categories || [],
       };
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   
-  return posts.slice(0, 3); // Return only the 3 most recent posts
+  if (skip) {
+    return posts.slice(skip, skip + count);
+  }
+  return posts.slice(0, count);
 }
 
 // Featured projects data
@@ -96,11 +113,19 @@ const projects = [
   }
 ];
 
+import ContentSlider from '@/components/ContentSlider';
+
 export default async function Home() {
-  const recentPosts = await getBlogPosts();
+  // Get featured posts for the slider (first 5 posts)
+  const featuredPosts = await getBlogPosts(5);
+  // Get recent posts for the grid (next 3 posts)
+  const recentPosts = await getBlogPosts(3, 5);
   
   return (
     <div className="container mx-auto px-4 py-12">
+      {/* Featured Content Slider */}
+      <ContentSlider posts={featuredPosts} />
+      
       {/* Hero Section */}
       <section className="flex flex-col items-center text-center mb-16">
         <div className="max-w-3xl">
@@ -110,6 +135,14 @@ export default async function Home() {
           <h2 className="text-2xl md:text-3xl text-primary mb-6">
             Software Engineer & AI Developer
           </h2>
+          <div className="bg-secondary/20 p-6 rounded-lg mb-8 border border-secondary/30">
+            <p className="text-lg italic mb-2">👋 Welcome to my digital home!</p>
+            <p className="text-md">
+              Thanks for stopping by. I'm passionate about building technology that makes AI more accessible, 
+              ethical, and human-centered. Whether you're here to explore my projects, read my latest thoughts, 
+              or connect professionally, I'm glad you're here.
+            </p>
+          </div>
           <p className="text-lg text-muted-foreground mb-8">
             I build innovative applications that leverage the power of large language models
             and modern web technologies to create useful tools and platforms.
