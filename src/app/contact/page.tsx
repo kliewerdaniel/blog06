@@ -36,6 +36,7 @@ export default function ContactPage() {
     <div className="container mx-auto px-4 py-12">
       <h1 className="text-4xl font-bold mb-8">Contact</h1>
       <div className="max-w-2xl mx-auto">
+        {/* Ensure SearchParamsProvider is wrapped in Suspense to handle useSearchParams safely for SSR */}
         <Suspense fallback={<div>Loading...</div>}>
           <SearchParamsProvider>
             {(searchParams) => (

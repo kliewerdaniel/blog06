@@ -306,3 +306,7 @@ export default function BlogPost({ params }: BlogPostProps) {
     );
   }
 }
+
+// Note: The SearchParamsProvider is imported but not used in this component.
+// This is intentional as we're primarily using static data here.
+// If you need to use search parameters, make sure to wrap them in a Suspense boundary.
