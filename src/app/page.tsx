@@ -94,6 +94,18 @@ async function getBlogPosts(count = 3, skip = 0) {
 // Featured projects data
 const projects = [
   {
+    title: "ReasonAI",
+    description: "A local-first reasoning agent framework that preserves privacy by running entirely on your machine.",
+    technologies: ["Next.js", "Ollama", "Llama", "TypeScript"],
+    link: "/blog/2025-03-09-Reason-AI"
+  },
+  {
+    title: "AI Filename Generator",
+    description: "A Chrome extension that uses AI to automatically generate meaningful filenames when downloading files.",
+    technologies: ["Chrome Extension", "JavaScript", "OpenAI API", "Webpack"],
+    link: "/blog/2025-02-25-Building-an-AI-Powered-Filename-generator-chrome-extension"
+  },
+  {
     title: "Insight Journal",
     description: "An AI-integrated journaling platform using locally hosted LLMs for personal feedback and reflection.",
     technologies: ["Jekyll", "Llama 3.2", "Ollama", "Netlify"],
@@ -116,17 +128,24 @@ const projects = [
 import ContentSlider from '@/components/ContentSlider';
 
 export default async function Home() {
-  // Get featured posts for the slider (first 5 posts)
-  const featuredPosts = await getBlogPosts(5);
-  // Get recent posts for the grid (next 3 posts)
-  const recentPosts = await getBlogPosts(3, 5);
+  // Get recent posts for the grid (first 3 posts)
+  const recentPosts = await getBlogPosts(3);
+  
+  // Convert projects to a format compatible with ContentSlider
+  const projectsForSlider = projects.map(project => ({
+    slug: project.link.replace(/^\/blog\//, ""),
+    title: project.title,
+    excerpt: project.description,
+    categories: project.technologies,
+    // Add required date field for PostMetadata type compatibility
+    date: new Date().toISOString(),
+    // Use undefined instead of null for image to match the type definition
+    image: undefined
+  }));
   
   return (
     <div className="container mx-auto px-4 py-12">
-      {/* Featured Content Slider */}
-      <ContentSlider posts={featuredPosts} />
-      
-      {/* Hero Section */}
+      {/* Hero Section - Moved to the top */}
       <section className="flex flex-col items-center text-center mb-16">
         <div className="max-w-3xl">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
@@ -191,30 +210,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Featured Projects Section */}
-      <section>
-        <h2 className="text-2xl md:text-3xl font-bold mb-8">Featured Projects</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {projects.map((project, index) => (
-            <div key={index} className="card overflow-hidden">
-              <div className="card-body p-6">
-                <h3 className="text-xl font-bold mb-2">{project.title}</h3>
-                <p className="text-muted-foreground mb-4">{project.description}</p>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {project.technologies.map((tech, i) => (
-                    <span key={i} className="badge badge-outline text-xs px-2 py-1">
-                      {tech}
-                    </span>
-                  ))}
-                </div>
-                <Link href={project.link} className="text-primary hover:underline">
-                  Learn More →
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Featured Projects Slider - Using the previous slider component */}
+      <ContentSlider posts={projectsForSlider} />
     </div>
   );
 }
