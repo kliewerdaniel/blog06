@@ -134,7 +134,7 @@ export default async function Home() {
   // Convert projects to a format compatible with ContentSlider
   const projectsForSlider = projects.map(project => ({
     slug: project.link.replace(/^\/blog\//, ""),
-    
+    title: project.title,
     excerpt: project.description,
     categories: project.technologies,
     // Add required date field for PostMetadata type compatibility
