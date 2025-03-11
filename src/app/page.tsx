@@ -129,12 +129,12 @@ import ContentSlider from '@/components/ContentSlider';
 
 export default async function Home() {
   // Get recent posts for the grid (first 3 posts)
-  const recentPosts = await getBlogPosts(3);
+  const recentPosts = await getBlogPosts(6);
   
   // Convert projects to a format compatible with ContentSlider
   const projectsForSlider = projects.map(project => ({
     slug: project.link.replace(/^\/blog\//, ""),
-    title: project.title,
+    
     excerpt: project.description,
     categories: project.technologies,
     // Add required date field for PostMetadata type compatibility
