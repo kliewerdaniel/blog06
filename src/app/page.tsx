@@ -128,7 +128,7 @@ const projects = [
 import ContentSlider from '@/components/ContentSlider';
 
 export default async function Home() {
-  // Get recent posts for the grid (first 3 posts)
+  // Get recent posts for the grid (first 6 posts)
   const recentPosts = await getBlogPosts(6);
   
   // Convert projects to a format compatible with ContentSlider
@@ -142,6 +142,30 @@ export default async function Home() {
     // Use undefined instead of null for image to match the type definition
     image: undefined
   }));
+  
+  // Extract all technologies from posts and projects to display in the showcase
+  const technologyMap = new Map<string, number>();
+  
+  // Add technologies from projects
+  projects.forEach(project => {
+    project.technologies.forEach(tech => {
+      technologyMap.set(tech, (technologyMap.get(tech) || 0) + 1);
+    });
+  });
+  
+  // Add technologies/categories from posts
+  recentPosts.forEach(post => {
+    if (post.categories && post.categories.length > 0) {
+      post.categories.forEach((category: string) => {
+        technologyMap.set(category, (technologyMap.get(category) || 0) + 1);
+      });
+    }
+  });
+  
+  // Convert the map to an array of technology objects
+  const technologies = Array.from(technologyMap.entries())
+    .map(([name, count]) => ({ name, count }))
+    .filter(tech => tech.count > 0);
   
   return (
     <div className="container mx-auto px-4 py-12">
@@ -181,6 +205,8 @@ export default async function Home() {
           </div>
         </div>
       </section>
+     {/* Featured Projects Section */}      {/* Featured Projects Slider - Using the previous slider component */}
+      <ContentSlider posts={projectsForSlider} />
 
       {/* Recent Blog Posts Section */}
       <section className="mb-20">
@@ -198,20 +224,40 @@ export default async function Home() {
               className="card p-6 transition-all hover:shadow-md"
             >
               <h3 className="text-xl font-bold mb-3 line-clamp-2">{post.title}</h3>
-              <p className="text-sm text-muted-foreground">
+              
+              {/* Display technologies/categories as tags */}
+              {post.categories && post.categories.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {post.categories.map((category: string, idx: number) => (
+                    <span 
+                      key={idx} 
+                      className="inline-block text-xs px-2 py-1 bg-primary/10 text-primary rounded-full"
+                    >
+                      {category}
+                    </span>
+                  ))}
+                </div>
+              )}
+              
+              <p className="text-sm text-muted-foreground mb-3">
                 {new Date(post.date).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric'
                 })}
               </p>
+              
+              {post.excerpt && (
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {post.excerpt}
+                </p>
+              )}
             </Link>
           ))}
         </div>
       </section>
 
-      {/* Featured Projects Slider - Using the previous slider component */}
-      <ContentSlider posts={projectsForSlider} />
+
     </div>
   );
 }

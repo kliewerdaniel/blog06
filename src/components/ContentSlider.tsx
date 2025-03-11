@@ -82,7 +82,7 @@ const ContentSlider: React.FC<ContentSliderProps> = ({ posts }) => {
               
               <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 text-white z-20">
                 <div className="flex flex-wrap gap-2 mb-3">
-                  {post.categories && post.categories.map((category, idx) => (
+                  {post.categories && post.categories.map((category: string, idx: number) => (
                     <span 
                       key={idx} 
                       className="inline-block text-xs px-2 py-1 bg-primary text-white rounded-full"
