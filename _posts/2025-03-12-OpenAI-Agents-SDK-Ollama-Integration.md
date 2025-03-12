@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Complete Guide: Integrating OpenAI Agents SDK with Ollama
+title: Complete Guide Integrating OpenAI Agents SDK with Ollama
 description: This comprehensive guide demonstrates how to integrate the official OpenAI Agents SDK with Ollama to create AI agents that run entirely on local infrastructure. By the end, you'll understand both the theoretical foundations and practical implementation of locally-hosted AI agents.
 date:   2025-03-12 09:42:44 -0500
 ---
