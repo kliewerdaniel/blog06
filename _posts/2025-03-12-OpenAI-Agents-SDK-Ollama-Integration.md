@@ -151,42 +151,32 @@ import os
 from openai import OpenAI
 
 class OllamaClient(OpenAI):
+    """Custom OpenAI client that routes requests to Ollama."""
 
-"""Custom OpenAI client that routes requests to Ollama."""
+    def __init__(self, model_name="mistral", **kwargs):
+        # Configure to use Ollama's endpoint
+        kwargs["base_url"] = "http://localhost:11434/v1"
 
-def __init__(self, model_name="mistral", **kwargs):
+        # Ollama doesn't require an API key but the client expects one
+        kwargs["api_key"] = "ollama-placeholder-key"
 
-# Configure to use Ollama's endpoint
+        super().__init__(**kwargs)
+        self.model_name = model_name
 
-kwargs["base_url"] = "http://localhost:11434/v1"
+    def create_completion(self, *args, **kwargs):
+        # Override model name if not explicitly provided
+        if "model" not in kwargs:
+            kwargs["model"] = self.model_name
 
-# Ollama doesn't require an API key but the client expects one
+        return super().create_completion(*args, **kwargs)
 
-kwargs["api_key"] = "ollama-placeholder-key"
+    def create_chat_completion(self, *args, **kwargs):
+        # Override model name if not explicitly provided
+        if "model" not in kwargs:
+            kwargs["model"] = self.model_name
 
-super().__init__(**kwargs)
+        return super().create_chat_completion(*args, **kwargs)
 
-self.model_name = model_name
-
-def create_completion(self, *args, **kwargs):
-
-# Override model name if not explicitly provided
-
-if "model" not in kwargs:
-
-kwargs["model"] = self.model_name
-
-return super().create_completion(*args, **kwargs)
-
-def create_chat_completion(self, *args, **kwargs):
-
-# Override model name if not explicitly provided
-
-if "model" not in kwargs:
-
-kwargs["model"] = self.model_name
-
-return super().create_chat_completion(*args, **kwargs)
 
 ```
 
@@ -199,27 +189,20 @@ Now we'll create an adapter that makes the OpenAI Agents SDK compatible with our
 # agent_adapter.py
 
 from ollama_client import OllamaClient
-
 from openai_agents.agent import Agent
 
-import openai_agents
-
 # Patch the OpenAI client creation in the Agent class
-
 original_init = Agent.__init__
 
+
 def patched_init(self, *args, **kwargs):
+    """Replace the client with OllamaClient if not provided."""
+    if "client" not in kwargs:
+        kwargs["client"] = OllamaClient(model_name="mistral")
+    original_init(self, *args, **kwargs)
 
-# Replace client with our Ollama client if not provided
-
-if 'client' not in kwargs:
-
-kwargs['client'] = OllamaClient(model_name="mistral")
-
-original_init(self, *args, **kwargs)
 
 # Apply the patch
-
 Agent.__init__ = patched_init
 
 ```
@@ -235,290 +218,170 @@ Create a file named `document_agent.py`:
 ```python
 
 import os
-
 import re
-
 import json
-
 import requests
-
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from pydantic import BaseModel, Field
 
 # Import the patched agent module
-
 from agent_adapter import Agent
-
 from ollama_client import OllamaClient
 
+
 # Define the tool schemas
-
 class FetchDocumentInput(BaseModel):
+    url: str = Field(..., description="URL of the document to fetch")
 
-url: str = Field(..., description="URL of the document to fetch")
 
 class FetchDocumentOutput(BaseModel):
+    content: str = Field(..., description="Content of the document")
 
-content: str = Field(..., description="Content of the document")
 
 class ExtractInfoInput(BaseModel):
+    text: str = Field(..., description="Text to extract information from")
+    info_type: str = Field(
+        ..., description="Type of information to extract (e.g., 'dates', 'names', 'key points')"
+    )
 
-text: str = Field(..., description="Text to extract information from")
-
-info_type: str = Field(..., description="Type of information to extract (e.g., 'dates', 'names', 'key points')")
 
 class ExtractInfoOutput(BaseModel):
+    information: List[str] = Field(..., description="List of extracted information")
 
-information: List[str] = Field(..., description="List of extracted information")
 
 class SearchDocumentInput(BaseModel):
+    text: str = Field(..., description="Document text to search within")
+    query: str = Field(..., description="Query to search for")
 
-text: str = Field(..., description="Document text to search within")
-
-query: str = Field(..., description="Query to search for")
 
 class SearchDocumentOutput(BaseModel):
+    results: List[str] = Field(..., description="List of matching paragraphs or sentences")
 
-results: List[str] = Field(..., description="List of matching paragraphs or sentences")
 
 # Implement tool functions
-
 def fetch_document(url: str) -> Dict[str, Any]:
+    """Fetches a document from a URL and returns its content."""
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        content = re.sub(r"<[^>]+>", "", response.text)  # Remove HTML tags
+        return {"content": content}
+    except Exception as e:
+        return {"content": f"Error fetching document: {str(e)}"}
 
-"""Fetches a document from a URL and returns its content."""
-
-try:
-
-response = requests.get(url)
-
-response.raise_for_status()
-
-content = response.text
-
-# Simple HTML tag removal for cleaner text
-
-content = re.sub(r'<[^>]+>', '', content)
-
-return {"content": content}
-
-except Exception as e:
-
-return {"content": f"Error fetching document: {str(e)}"}
 
 def extract_info(text: str, info_type: str) -> Dict[str, Any]:
+    """Extracts specified type of information from text using Ollama."""
+    client = OllamaClient(model_name="mistral")
 
-"""Extracts specified type of information from text."""
+    prompt = f"""
+    Extract all {info_type} from the following text.
+    Return ONLY a JSON array with the items.
 
-client = OllamaClient(model_name="mistral")
+    TEXT:
+    {text[:2000]}  # Limit text length to prevent context overflow
 
-prompt = f"""
+    JSON ARRAY OF {info_type.upper()}:
+    """
 
-Extract all {info_type} from the following text.
+    response = client.chat.completions.create(
+        model="mistral",
+        messages=[{"role": "user", "content": prompt}],
+    )
 
-Return ONLY a JSON array with the items.
+    result_text = response.choices[0].message.content
 
-TEXT:
+    try:
+        match = re.search(r"\[.*\]", result_text, re.DOTALL)
+        information = json.loads(match.group(0)) if match else [result_text.strip()]
+    except json.JSONDecodeError:
+        information = [item.strip() for item in result_text.split(",")]
 
-{text[:2000]} # Limit text length to prevent context overflow
+    return {"information": information}
 
-JSON ARRAY OF {info_type.upper()}:
-
-"""
-
-response = client.chat.completions.create(
-
-model="mistral",
-
-messages=[{"role": "user", "content": prompt}]
-
-)
-
-# Extract JSON array from response
-
-result_text = response.choices[0].message.content
-
-try:
-
-# Try to find JSON array in the response
-
-match = re.search(r'\[.*\]', result_text, re.DOTALL)
-
-if match:
-
-information = json.loads(match.group(0))
-
-else:
-
-# If no array found, process as comma-separated list
-
-information = [item.strip() for item in result_text.split(',')]
-
-except:
-
-# Fallback if JSON parsing fails
-
-information = [result_text.strip()]
-
-return {"information": information}
 
 def search_document(text: str, query: str) -> Dict[str, Any]:
+    """Searches for relevant content in the document."""
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
 
-"""Searches for relevant content in the document."""
+    client = OllamaClient(model_name="mistral")
 
-# Split text into paragraphs
+    prompt = f"""
+    You need to find paragraphs in a document that answer or relate to the query: "{query}"
+    Rate each paragraph's relevance to the query on a scale of 0-10.
+    Return the 3 most relevant paragraphs with their ratings as JSON.
 
-paragraphs = [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
+    Document sections:
+    {json.dumps(paragraphs[:15])}  # Limit to first 15 paragraphs for context limits
 
-client = OllamaClient(model_name="mistral")
+    Output format: [{"rating": 8, "text": "paragraph text"}, ...]
+    """
 
-prompt = f"""
+    response = client.chat.completions.create(
+        model="mistral",
+        messages=[{"role": "user", "content": prompt}],
+    )
 
-You need to find paragraphs in a document that answer or relate to the query: "{query}"
+    result_text = response.choices[0].message.content
 
-Rate each paragraph's relevance to the query on a scale of 0-10.
+    try:
+        match = re.search(r"\[.*\]", result_text, re.DOTALL)
+        parsed = json.loads(match.group(0)) if match else []
+        results = [item["text"] for item in parsed] if parsed else re.findall(r'"([^"]+)"', result_text)
+    except json.JSONDecodeError:
+        results = [result_text]
 
-Return the 3 most relevant paragraphs with their ratings as JSON.
+    return {"results": results}
 
-Document sections:
-
-{json.dumps(paragraphs[:15])} # Limit to first 15 paragraphs for context limits
-
-Output format: [{"rating": 8, "text": "paragraph text"}, ...]
-
-"""
-
-response = client.chat.completions.create(
-
-model="mistral",
-
-messages=[{"role": "user", "content": prompt}]
-
-)
-
-# Process the response to extract results
-
-result_text = response.choices[0].message.content
-
-try:
-
-# Try to extract JSON array
-
-match = re.search(r'\[.*\]', result_text, re.DOTALL)
-
-if match:
-
-parsed = json.loads(match.group(0))
-
-results = [item["text"] for item in parsed]
-
-else:
-
-# Fallback: look for quotes or section markers
-
-results = re.findall(r'"([^"]+)"', result_text)
-
-if not results:
-
-results = [result_text]
-
-except:
-
-results = [result_text]
-
-return {"results": results}
 
 # Create a Document Analysis Agent
-
 def create_document_agent():
+    """Creates and returns an AI agent for document analysis."""
+    client = OllamaClient(model_name="mistral")
 
-# Initialize with our Ollama client
+    tools = [
+        {
+            "name": "fetch_document",
+            "description": "Fetches a document from a URL",
+            "input_schema": FetchDocumentInput,
+            "output_schema": FetchDocumentOutput,
+            "function": fetch_document,
+        },
+        {
+            "name": "extract_info",
+            "description": "Extracts specified information from text",
+            "input_schema": ExtractInfoInput,
+            "output_schema": ExtractInfoOutput,
+            "function": extract_info,
+        },
+        {
+            "name": "search_document",
+            "description": "Searches for relevant content in the document",
+            "input_schema": SearchDocumentInput,
+            "output_schema": SearchDocumentOutput,
+            "function": search_document,
+        },
+    ]
 
-client = OllamaClient(model_name="mistral")
+    agent = Agent(
+        name="DocumentAnalysisAgent",
+        description="An agent that analyzes documents, extracts information, and answers questions.",
+        instructions=(
+            "You are a Document Analysis Assistant that helps users extract valuable information from documents.\n\n"
+            "When given a task:\n"
+            "1. If you need to analyze a document, first use fetch_document to get its content.\n"
+            "2. Use extract_info to identify specific information in the document.\n"
+            "3. Use search_document to find answers to specific questions.\n"
+            "4. Summarize your findings in a clear, organized manner.\n\n"
+            "Always be thorough and accurate in your analysis. If the document content is too large, "
+            "focus on the most relevant sections for the user's query."
+        ),
+        tools=tools,
+        client=client,
+    )
 
-# Define tools with proper schemas
-
-tools = [
-
-{
-
-"name": "fetch_document",
-
-"description": "Fetches a document from a URL",
-
-"input_schema": FetchDocumentInput,
-
-"output_schema": FetchDocumentOutput,
-
-"function": fetch_document
-
-},
-
-{
-
-"name": "extract_info",
-
-"description": "Extracts specified information from text",
-
-"input_schema": ExtractInfoInput,
-
-"output_schema": ExtractInfoOutput,
-
-"function": extract_info
-
-},
-
-{
-
-"name": "search_document",
-
-"description": "Searches for relevant content in the document",
-
-"input_schema": SearchDocumentInput,
-
-"output_schema": SearchDocumentOutput,
-
-"function": search_document
-
-}
-
-]
-
-# Create the agent with our tools
-
-agent = Agent(
-
-name="DocumentAnalysisAgent",
-
-description="An agent that analyzes documents, extracts information, and answers questions.",
-
-instructions="""
-
-You are a Document Analysis Assistant that helps users extract valuable information from documents.
-
-When given a task:
-
-1. If you need to analyze a document, first use fetch_document to get its content
-
-2. Use extract_info to identify specific information in the document
-
-3. Use search_document to find answers to specific questions
-
-4. Summarize your findings in a clear, organized manner
-
-Always be thorough and accurate in your analysis. If the document content is too large,
-
-focus on the most relevant sections for the user's query.
-
-""",
-
-tools=tools,
-
-client=client
-
-)
-
-return agent
+    return agent
 
 ```
 
@@ -529,62 +392,45 @@ Create a file named `main.py` to run the agent:
 ```python
 
 from document_agent import create_document_agent
-
 from ollama_client import OllamaClient
 
 def main():
-
-print("Initializing Document Analysis Agent...")
-
-agent = create_document_agent()
-
-print("\nDocument Analysis Agent Ready!")
-
-print("Type 'exit' to quit\n")
-
-# Start a conversation session
-
-conversation_id = None
-
-while True:
-
-user_input = input("\nYou: ")
-
-if user_input.lower() == 'exit':
-
-break
-
-# Get agent response
-
-response = agent.run(
-
-message=user_input,
-
-conversation_id=conversation_id
-
-)
-
-# Store the conversation ID for continuity
-
-conversation_id = response.conversation_id
-
-# Print the response
-
-print(f"\nAgent: {response.message}")
-
-# If tools were used, show info about tool usage
-
-if response.tool_calls:
-
-print("\nTools Used:")
-
-for tool in response.tool_calls:
-
-print(f"- {tool.name}")
+    print("Initializing Document Analysis Agent...")
+    
+    agent = create_document_agent()
+    
+    print("\nDocument Analysis Agent Ready!")
+    print("Type 'exit' to quit\n")
+    
+    # Start a conversation session
+    conversation_id = None
+    
+    while True:
+        user_input = input("\nYou: ")
+        
+        if user_input.lower() == 'exit':
+            break
+        
+        # Get agent response
+        response = agent.run(
+            message=user_input,
+            conversation_id=conversation_id
+        )
+        
+        # Store the conversation ID for continuity
+        conversation_id = response.conversation_id
+        
+        # Print the response
+        print(f"\nAgent: {response.message}")
+        
+        # If tools were used, show info about tool usage
+        if response.tool_calls:
+            print("\nTools Used:")
+            for tool in response.tool_calls:
+                print(f"- {tool.name}")
 
 if __name__ == "__main__":
-
-main()
+    main()
 
 ```
 
@@ -645,136 +491,86 @@ Let's enhance our agent with a persistent memory to store analyzed documents for
 # document_memory.py
 
 import os
-
 import json
-
 import hashlib
-
 from typing import Dict, List, Optional
 
 class DocumentMemory:
-
-"""Simple document storage system for the agent."""
-
-def __init__(self, storage_dir="./document_memory"):
-
-self.storage_dir = storage_dir
-
-os.makedirs(storage_dir, exist_ok=True)
-
-self.index_file = os.path.join(storage_dir, "index.json")
-
-self.document_index = self._load_index()
-
-def _load_index(self) -> Dict:
-
-"""Load document index from disk."""
-
-if os.path.exists(self.index_file):
-
-with open(self.index_file, 'r') as f:
-
-return json.load(f)
-
-return {"documents": {}}
-
-def _save_index(self):
-
-"""Save document index to disk."""
-
-with open(self.index_file, 'w') as f:
-
-json.dump(self.document_index, f, indent=2)
-
-def _generate_doc_id(self, url: str) -> str:
-
-"""Generate a unique ID for a document based on its URL."""
-
-return hashlib.md5(url.encode()).hexdigest()
-
-def store_document(self, url: str, content: str, metadata: Optional[Dict] = None) -> str:
-
-"""Store a document and return its ID."""
-
-doc_id = self._generate_doc_id(url)
-
-doc_path = os.path.join(self.storage_dir, f"{doc_id}.txt")
-
-# Store document content
-
-with open(doc_path, 'w') as f:
-
-f.write(content)
-
-# Update index
-
-self.document_index["documents"][doc_id] = {
-
-"url": url,
-
-"path": doc_path,
-
-"metadata": metadata or {}
-
-}
-
-self._save_index()
-
-return doc_id
-
-def get_document(self, doc_id: str) -> Optional[Dict]:
-
-"""Retrieve a document by ID."""
-
-if doc_id not in self.document_index["documents"]:
-
-return None
-
-doc_info = self.document_index["documents"][doc_id]
-
-try:
-
-with open(doc_info["path"], 'r') as f:
-
-content = f.read()
-
-return {
-
-"id": doc_id,
-
-"url": doc_info["url"],
-
-"content": content,
-
-"metadata": doc_info["metadata"]
-
-}
-
-except Exception as e:
-
-print(f"Error retrieving document {doc_id}: {e}")
-
-return None
-
-def get_document_by_url(self, url: str) -> Optional[Dict]:
-
-"""Find and retrieve a document by URL."""
-
-doc_id = self._generate_doc_id(url)
-
-return self.get_document(doc_id)
-
-def list_documents(self) -> List[Dict]:
-
-"""List all stored documents."""
-
-return [
-
-{"id": doc_id, "url": info["url"], "metadata": info["metadata"]}
-
-for doc_id, info in self.document_index["documents"].items()
-
-]
+    """Simple document storage system for the agent."""
+    
+    def __init__(self, storage_dir: str = "./document_memory"):
+        self.storage_dir = storage_dir
+        os.makedirs(storage_dir, exist_ok=True)
+        
+        self.index_file = os.path.join(storage_dir, "index.json")
+        self.document_index = self._load_index()
+    
+    def _load_index(self) -> Dict:
+        """Load document index from disk."""
+        if os.path.exists(self.index_file):
+            with open(self.index_file, 'r') as f:
+                return json.load(f)
+        return {"documents": {}}
+    
+    def _save_index(self):
+        """Save document index to disk."""
+        with open(self.index_file, 'w') as f:
+            json.dump(self.document_index, f, indent=2)
+    
+    def _generate_doc_id(self, url: str) -> str:
+        """Generate a unique ID for a document based on its URL."""
+        return hashlib.md5(url.encode()).hexdigest()
+    
+    def store_document(self, url: str, content: str, metadata: Optional[Dict] = None) -> str:
+        """Store a document and return its ID."""
+        doc_id = self._generate_doc_id(url)
+        doc_path = os.path.join(self.storage_dir, f"{doc_id}.txt")
+        
+        # Store document content
+        with open(doc_path, 'w') as f:
+            f.write(content)
+        
+        # Update index
+        self.document_index["documents"][doc_id] = {
+            "url": url,
+            "path": doc_path,
+            "metadata": metadata or {}
+        }
+        
+        self._save_index()
+        return doc_id
+    
+    def get_document(self, doc_id: str) -> Optional[Dict]:
+        """Retrieve a document by ID."""
+        if doc_id not in self.document_index["documents"]:
+            return None
+        
+        doc_info = self.document_index["documents"][doc_id]
+        
+        try:
+            with open(doc_info["path"], 'r') as f:
+                content = f.read()
+            return {
+                "id": doc_id,
+                "url": doc_info["url"],
+                "content": content,
+                "metadata": doc_info["metadata"]
+            }
+        except Exception as e:
+            print(f"Error retrieving document {doc_id}: {e}")
+            return None
+    
+    def get_document_by_url(self, url: str) -> Optional[Dict]:
+        """Find and retrieve a document by URL."""
+        doc_id = self._generate_doc_id(url)
+        return self.get_document(doc_id)
+    
+    def list_documents(self) -> List[Dict]:
+        """List all stored documents."""
+        return [
+            {"id": doc_id, "url": info["url"], "metadata": info["metadata"]}
+            for doc_id, info in self.document_index["documents"].items()
+        ]
 
 ```
 
@@ -784,89 +580,88 @@ Update `document_agent.py` to include memory capabilities:
 
 ```python
 
-# Add these imports
+import os
+import json
+import hashlib
+from typing import Dict, List, Optional
 
-from document_memory import DocumentMemory
+class DocumentMemory:
+    """Simple document storage system for the agent."""
+    
+    def __init__(self, storage_dir: str = "./document_memory"):
+        self.storage_dir = storage_dir
+        os.makedirs(storage_dir, exist_ok=True)
+        
+        self.index_file = os.path.join(storage_dir, "index.json")
+        self.document_index = self._load_index()
+    
+    def _load_index(self) -> Dict:
+        """Load document index from disk."""
+        if os.path.exists(self.index_file):
+            with open(self.index_file, 'r') as f:
+                return json.load(f)
+        return {"documents": {}}
+    
+    def _save_index(self):
+        """Save document index to disk."""
+        with open(self.index_file, 'w') as f:
+            json.dump(self.document_index, f, indent=2)
+    
+    def _generate_doc_id(self, url: str) -> str:
+        """Generate a unique ID for a document based on its URL."""
+        return hashlib.md5(url.encode()).hexdigest()
+    
+    def store_document(self, url: str, content: str, metadata: Optional[Dict] = None) -> str:
+        """Store a document and return its ID."""
+        doc_id = self._generate_doc_id(url)
+        doc_path = os.path.join(self.storage_dir, f"{doc_id}.txt")
+        
+        # Store document content
+        with open(doc_path, 'w') as f:
+            f.write(content)
+        
+        # Update index
+        self.document_index["documents"][doc_id] = {
+            "url": url,
+            "path": doc_path,
+            "metadata": metadata or {}
+        }
+        
+        self._save_index()
+        return doc_id
+    
+    def get_document(self, doc_id: str) -> Optional[Dict]:
+        """Retrieve a document by ID."""
+        if doc_id not in self.document_index["documents"]:
+            return None
+        
+        doc_info = self.document_index["documents"][doc_id]
+        
+        try:
+            with open(doc_info["path"], 'r') as f:
+                content = f.read()
+            return {
+                "id": doc_id,
+                "url": doc_info["url"],
+                "content": content,
+                "metadata": doc_info["metadata"]
+            }
+        except Exception as e:
+            print(f"Error retrieving document {doc_id}: {e}")
+            return None
+    
+    def get_document_by_url(self, url: str) -> Optional[Dict]:
+        """Find and retrieve a document by URL."""
+        doc_id = self._generate_doc_id(url)
+        return self.get_document(doc_id)
+    
+    def list_documents(self) -> List[Dict]:
+        """List all stored documents."""
+        return [
+            {"id": doc_id, "url": info["url"], "metadata": info["metadata"]}
+            for doc_id, info in self.document_index["documents"].items()
+        ]
 
-# Initialize document memory
-
-document_memory = DocumentMemory()
-
-# Update the fetch_document function
-
-def fetch_document(url: str) -> Dict[str, Any]:
-
-"""Fetches a document from a URL or retrieves from memory if previously fetched."""
-
-# Check if document is already in memory
-
-doc = document_memory.get_document_by_url(url)
-
-if doc:
-
-return {"content": doc["content"]}
-
-# If not in memory, fetch it
-
-try:
-
-response = requests.get(url)
-
-response.raise_for_status()
-
-content = response.text
-
-# Simple HTML tag removal
-
-content = re.sub(r'<[^>]+>', '', content)
-
-# Store in memory for future use
-
-document_memory.store_document(url, content, metadata={"source": "web"})
-
-return {"content": content}
-
-except Exception as e:
-
-return {"content": f"Error fetching document: {str(e)}"}
-
-# Add a new tool to list documents in memory
-
-class ListDocumentsOutput(BaseModel):
-
-documents: List[Dict[str, Any]] = Field(..., description="List of documents in memory")
-
-def list_documents() -> Dict[str, Any]:
-
-"""Lists all documents stored in memory."""
-
-docs = document_memory.list_documents()
-
-return {"documents": docs}
-
-# Add the new tool to the create_document_agent function
-
-def create_document_agent():
-
-# ...existing code...
-
-# Add the list_documents tool
-
-tools.append({
-
-"name": "list_documents",
-
-"description": "Lists all documents stored in memory",
-
-"input_schema": None, # No input needed
-
-"output_schema": ListDocumentsOutput,
-
-"function": list_documents
-
-})
-
-# ...rest of the function...
 
 ```
 
@@ -876,145 +671,88 @@ Let's add functionality to compare two documents:
 
 ```python
 
-# Add to document_agent.py
+import os
+import json
+import hashlib
+from typing import Dict, List, Optional
+
+class DocumentMemory:
+    """Simple document storage system for the agent."""
+    
+    def __init__(self, storage_dir: str = "./document_memory"):
+        self.storage_dir = storage_dir
+        os.makedirs(storage_dir, exist_ok=True)
+        
+        self.index_file = os.path.join(storage_dir, "index.json")
+        self.document_index = self._load_index()
+    
+    def _load_index(self) -> Dict:
+        """Load document index from disk."""
+        if os.path.exists(self.index_file):
+            with open(self.index_file, 'r') as f:
+                return json.load(f)
+        return {"documents": {}}
+    
+    def _save_index(self):
+        """Save document index to disk."""
+        with open(self.index_file, 'w') as f:
+            json.dump(self.document_index, f, indent=2)
+    
+    def _generate_doc_id(self, url: str) -> str:
+        """Generate a unique ID for a document based on its URL."""
+        return hashlib.md5(url.encode()).hexdigest()
+    
+    def store_document(self, url: str, content: str, metadata: Optional[Dict] = None) -> str:
+        """Store a document and return its ID."""
+        doc_id = self._generate_doc_id(url)
+        doc_path = os.path.join(self.storage_dir, f"{doc_id}.txt")
+        
+        # Store document content
+        with open(doc_path, 'w') as f:
+            f.write(content)
+        
+        # Update index
+        self.document_index["documents"][doc_id] = {
+            "url": url,
+            "path": doc_path,
+            "metadata": metadata or {}
+        }
+        
+        self._save_index()
+        return doc_id
+    
+    def get_document(self, doc_id: str) -> Optional[Dict]:
+        """Retrieve a document by ID."""
+        if doc_id not in self.document_index["documents"]:
+            return None
+        
+        doc_info = self.document_index["documents"][doc_id]
+        
+        try:
+            with open(doc_info["path"], 'r') as f:
+                content = f.read()
+            return {
+                "id": doc_id,
+                "url": doc_info["url"],
+                "content": content,
+                "metadata": doc_info["metadata"]
+            }
+        except Exception as e:
+            print(f"Error retrieving document {doc_id}: {e}")
+            return None
+    
+    def get_document_by_url(self, url: str) -> Optional[Dict]:
+        """Find and retrieve a document by URL."""
+        doc_id = self._generate_doc_id(url)
+        return self.get_document(doc_id)
+    
+    def list_documents(self) -> List[Dict]:
+        """List all stored documents."""
+        return [
+            {"id": doc_id, "url": info["url"], "metadata": info["metadata"]}
+            for doc_id, info in self.document_index["documents"].items()
+        ]
 
-class CompareDocumentsInput(BaseModel):
-
-url1: str = Field(..., description="URL of the first document")
-
-url2: str = Field(..., description="URL of the second document")
-
-aspect: str = Field(..., description="The aspect to compare (e.g., 'content', 'style', 'key points')")
-
-class CompareDocumentsOutput(BaseModel):
-
-comparison: str = Field(..., description="Comparison analysis")
-
-similarities: List[str] = Field(..., description="List of similarities")
-
-differences: List[str] = Field(..., description="List of differences")
-
-def compare_documents(url1: str, url2: str, aspect: str) -> Dict[str, Any]:
-
-"""Compares two documents on a specified aspect."""
-
-# Fetch both documents
-
-doc1_result = fetch_document(url1)
-
-doc2_result = fetch_document(url2)
-
-doc1_content = doc1_result["content"]
-
-doc2_content = doc2_result["content"]
-
-# Use Ollama for comparison
-
-client = OllamaClient(model_name="mistral")
-
-prompt = f"""
-
-Compare the following two documents regarding their {aspect}.
-
-DOCUMENT 1:
-
-{doc1_content[:1500]} # Limit text to fit context window
-
-DOCUMENT 2:
-
-{doc2_content[:1500]} # Limit text to fit context window
-
-Provide a detailed comparison analysis focusing on {aspect}.
-
-Then list specific similarities and differences.
-
-Format your response as JSON:
-
-{{
-
-"comparison": "detailed analysis...",
-
-"similarities": ["similarity 1", "similarity 2", ...],
-
-"differences": ["difference 1", "difference 2", ...]
-
-}}
-
-"""
-
-response = client.chat.completions.create(
-
-model="mistral",
-
-messages=[{"role": "user", "content": prompt}]
-
-)
-
-# Extract structured data from response
-
-result_text = response.choices[0].message.content
-
-try:
-
-# Try to parse JSON response
-
-match = re.search(r'{.*}', result_text, re.DOTALL)
-
-if match:
-
-comparison_data = json.loads(match.group(0))
-
-else:
-
-# Fallback parsing
-
-comparison = result_text
-
-similarities = ["Could not extract structured similarities"]
-
-differences = ["Could not extract structured differences"]
-
-comparison_data = {
-
-"comparison": comparison,
-
-"similarities": similarities,
-
-"differences": differences
-
-}
-
-except:
-
-# Handle parsing failure
-
-comparison_data = {
-
-"comparison": result_text,
-
-"similarities": ["Error parsing structured data"],
-
-"differences": ["Error parsing structured data"]
-
-}
-
-return comparison_data
-
-# Add this tool in the create_document_agent function
-
-tools.append({
-
-"name": "compare_documents",
-
-"description": "Compares two documents on a specified aspect",
-
-"input_schema": CompareDocumentsInput,
-
-"output_schema": CompareDocumentsOutput,
-
-"function": compare_documents
-
-})
 
 ```
 
@@ -1068,53 +806,42 @@ Add this chunking utility:
 
 ```python
 
-def chunk_text(text, chunk_size=1000, overlap=100):
+from typing import Dict, Any
 
-"""Split text into overlapping chunks."""
-
-chunks = []
-
-for i in range(0, len(text), chunk_size - overlap):
-
-chunk = text[i:i + chunk_size]
-
-chunks.append(chunk)
-
-return chunks
-
-# Use in extract_info:
+def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 100) -> list:
+    """Split text into overlapping chunks."""
+    
+    chunks = []
+    for i in range(0, len(text), chunk_size - overlap):
+        chunk = text[i:i + chunk_size]
+        chunks.append(chunk)
+    
+    return chunks
 
 def extract_info(text: str, info_type: str) -> Dict[str, Any]:
-
-chunks = chunk_text(text)
-
-all_information = []
-
-client = OllamaClient(model_name="mistral")
-
-for chunk in chunks:
-
-prompt = f"""
-
-Extract all {info_type} from the following text.
-
-Return ONLY a JSON array with the items.
-
-TEXT:
-
-{chunk}
-
-JSON ARRAY OF {info_type.upper()}:
-
-"""
-
-# Process chunk and collect results...
-
-# [implementation details]
-
-# Deduplicate and return results
-
-return {"information": list(set(all_information))}
+    """Extract information of the specified type from the text."""
+    
+    chunks = chunk_text(text)
+    all_information = []
+    
+    client = OllamaClient(model_name="mistral")
+    
+    for chunk in chunks:
+        prompt = f"""
+        Extract all {info_type} from the following text.
+        Return ONLY a JSON array with the items.
+        
+        TEXT:
+        {chunk}
+        
+        JSON ARRAY OF {info_type.upper()}:
+        """
+        
+        # Process chunk and collect results...
+        # [implementation details]
+    
+    # Deduplicate and return results
+    return {"information": list(set(all_information))}
 
 ```
 
