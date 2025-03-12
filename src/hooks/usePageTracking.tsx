@@ -5,9 +5,8 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { trackPageView } from '@/utils/analytics';
 
 /**
- * A custom hook to track page views in Google Analytics
- * This hook listens for route changes and triggers analytics tracking 
- * Only tracks if consent has been given and GA is available
+ * A custom hook to track page views in Google Tag Manager
+ * This hook listens for route changes and triggers dataLayer events 
  * 
  * Note: This hook uses useSearchParams which requires a client component
  * and should be wrapped in a Suspense boundary when used.
