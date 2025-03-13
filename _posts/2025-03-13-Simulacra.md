@@ -125,7 +125,7 @@ ollama list
 ### Step 3: Clone and Install Simulacra01
 
 ```bash
-git clone https://github.com/yourusername/simulacra01.git
+git clone https://github.com/kliewerdaniel/simulacra01.git
 cd simulacra01
 pip install -e .
 ```
