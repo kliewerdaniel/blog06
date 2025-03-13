@@ -2,7 +2,7 @@
 layout: post
 title:  Mastering Burn for AI Training, Saving, and Running Local Models in Rust and Harnessing Rust for AI Integrating a Rust Library with OpenAI Agents in Python
 description: Learn how to integrate a Rust library with OpenAI agents in Python, enabling efficient AI model training, saving, and running locally. This guide covers the setup, implementation, and optimization of the integration process.
-date:   2025-03-11 10:42:44 -0500
+date:   2025-03-11 11:42:44 -0500
 ---
 
 # **Mastering Burn for AI: Training, Saving, and Running Local Models in Rust**
