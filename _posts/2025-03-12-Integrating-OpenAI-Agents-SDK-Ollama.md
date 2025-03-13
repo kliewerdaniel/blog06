@@ -7403,3 +7403,1618 @@ This comprehensive testing strategy provides a robust framework for validating t
 4. **Quality Assurance**: Response quality evaluations ensure that the system maintains high standards regardless of which provider handles the inference.
 
 The test suite is designed to be extensible, allowing for additional test cases as the system evolves. By automating this testing strategy through CI/CD pipelines, we maintain ongoing quality assurance and enable continuous improvement of the hybrid AI architecture.
+
+# User Interface Design for Hybrid OpenAI-Ollama MCP System
+
+## Conceptual Framework for Interface Design
+
+The Modern Computational Paradigm (MCP) system—integrating cloud-based intelligence with local inference capabilities—requires a thoughtfully designed interface that balances simplicity with advanced functionality. This document presents a comprehensive design approach for both command-line and web interfaces that expose the system's capabilities while maintaining an intuitive user experience.
+
+## Command Line Interface (CLI) Design
+
+### CLI Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  MCP-CLI                                                    │
+│                                                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐    │
+│  │ Core Module │  │ Config      │  │ Interactive Mode │    │
+│  └─────────────┘  └─────────────┘  └──────────────────┘    │
+│         │               │                   │               │
+│         ▼               ▼                   ▼               │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐    │
+│  │ Agent API   │  │ Model       │  │ Session          │    │
+│  │ Client      │  │ Management  │  │ Management       │    │
+│  └─────────────┘  └─────────────┘  └──────────────────┘    │
+│         │               │                   │               │
+│         └───────────────┼───────────────────┘               │
+│                         │                                   │
+│                         ▼                                   │
+│                  ┌─────────────┐                           │
+│                  │ Output      │                           │
+│                  │ Formatting  │                           │
+│                  └─────────────┘                           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### CLI Wireframes
+
+#### Main Help Screen
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  MCP CLI v1.0.0                                                         │
+│                                                                         │
+│  USAGE:                                                                 │
+│    mcp [OPTIONS] COMMAND [ARGS]...                                      │
+│                                                                         │
+│  OPTIONS:                                                               │
+│    --config PATH       Path to config file                              │
+│    --verbose           Enable verbose output                            │
+│    --help              Show this message and exit                       │
+│                                                                         │
+│  COMMANDS:                                                              │
+│    chat                Start a chat session                             │
+│    complete            Get a completion for a prompt                    │
+│    models              List and manage available models                 │
+│    config              Configure MCP settings                           │
+│    agents              Manage agent profiles                            │
+│    session             Manage saved sessions                            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Interactive Chat Mode
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  MCP Chat Session - ID: chat_78f3d2                                     │
+│  Model: auto-select | Provider: auto | Agent: research                  │
+│                                                                         │
+│  Type 'exit' to quit, 'help' for commands, 'models' to switch models    │
+│  ────────────────────────────────────────────────────────────────────   │
+│                                                                         │
+│  You: Tell me about quantum computing                                   │
+│                                                                         │
+│  MCP [OpenAI:gpt-4]: Quantum computing is a type of computation that    │
+│  harnesses quantum mechanical phenomena like superposition and          │
+│  entanglement to process information in ways that classical computers   │
+│  cannot.                                                                │
+│                                                                         │
+│  Unlike classical bits that exist in a state of either 0 or 1, quantum  │
+│  bits or "qubits" can exist in multiple states simultaneously due to    │
+│  superposition. This potentially allows quantum computers to explore    │
+│  multiple solutions to a problem at once.                               │
+│                                                                         │
+│  [Response continues for several more paragraphs...]                    │
+│                                                                         │
+│  You: Can you explain quantum entanglement more simply?                 │
+│                                                                         │
+│  MCP [Ollama:mistral]: █                                                │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Model Management Screen
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  MCP Models                                                             │
+│                                                                         │
+│  AVAILABLE MODELS:                                                      │
+│                                                                         │
+│  OpenAI:                                                                │
+│    [✓] gpt-4-turbo          - Advanced reasoning, current knowledge     │
+│    [✓] gpt-3.5-turbo        - Fast, efficient for standard tasks        │
+│                                                                         │
+│  Ollama:                                                                │
+│    [✓] llama2               - General purpose local model               │
+│    [✓] mistral              - Strong reasoning, 8k context window       │
+│    [✓] codellama            - Specialized for code generation           │
+│    [ ] wizard-math          - Mathematical problem-solving              │
+│                                                                         │
+│  COMMANDS:                                                              │
+│                                                                         │
+│    pull MODEL_NAME          - Download a model to Ollama                │
+│    info MODEL_NAME          - Show detailed model information           │
+│    benchmark MODEL_NAME     - Run performance benchmark                 │
+│    set-default MODEL_NAME   - Set as default model                      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Agent Configuration Screen
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  MCP Agent Configuration                                                │
+│                                                                         │
+│  AVAILABLE AGENTS:                                                      │
+│                                                                         │
+│    [✓] general             - General purpose assistant                  │
+│    [✓] research            - Research specialist with knowledge tools   │
+│    [✓] coding              - Code assistant with tool integration       │
+│    [✓] creative            - Creative writing and content generation    │
+│                                                                         │
+│  CUSTOM AGENTS:                                                         │
+│                                                                         │
+│    [✓] my-math-tutor       - Mathematics teaching and problem solving   │
+│    [✓] data-analyst        - Data analysis with visualization tools     │
+│                                                                         │
+│  COMMANDS:                                                              │
+│                                                                         │
+│    create NAME             - Create a new custom agent                  │
+│    edit NAME               - Edit an existing agent                     │
+│    delete NAME             - Delete a custom agent                      │
+│    export NAME FILE        - Export agent configuration                 │
+│    import FILE             - Import agent configuration                 │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### CLI Interaction Flow
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│             │     │             │     │             │     │             │
+│  Start CLI  │────▶│ Select Mode │────▶│ Set Config  │────▶│   Session   │
+│             │     │             │     │             │     │ Interaction │
+└─────────────┘     └─────────────┘     └─────────────┘     └──────┬──────┘
+                                                                   │
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌──────▼──────┐
+│             │     │             │     │             │     │             │
+│   Export    │◀────│   Session   │◀────│  Generate   │◀────│    User     │
+│   Results   │     │ Management  │     │  Response   │     │   Prompt    │
+│             │     │             │     │             │     │             │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+```
+
+### CLI Implementation Example
+
+```python
+# mcp_cli.py
+import argparse
+import os
+import json
+import sys
+import time
+from typing import Dict, Any, List, Optional
+import requests
+import yaml
+import colorama
+from colorama import Fore, Style
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.completion import WordCompleter
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.progress import Progress
+
+# Initialize colorama for cross-platform color support
+colorama.init()
+console = Console()
+
+CONFIG_PATH = os.path.expanduser("~/.mcp/config.yaml")
+HISTORY_PATH = os.path.expanduser("~/.mcp/history")
+API_URL = "http://localhost:8000/api/v1"
+
+def ensure_config_dir():
+    """Ensure the config directory exists."""
+    config_dir = os.path.dirname(CONFIG_PATH)
+    os.makedirs(config_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(HISTORY_PATH), exist_ok=True)
+
+def load_config():
+    """Load configuration from file."""
+    ensure_config_dir()
+    
+    if not os.path.exists(CONFIG_PATH):
+        # Create default config
+        config = {
+            "api": {
+                "url": API_URL,
+                "key": None
+            },
+            "defaults": {
+                "model": "auto",
+                "provider": "auto",
+                "agent": "general"
+            },
+            "output": {
+                "format": "markdown",
+                "show_model_info": True
+            }
+        }
+        
+        with open(CONFIG_PATH, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False)
+        
+        console.print(f"Created default config at {CONFIG_PATH}", style="yellow")
+        return config
+    
+    with open(CONFIG_PATH, 'r') as f:
+        return yaml.safe_load(f)
+
+def save_config(config):
+    """Save configuration to file."""
+    with open(CONFIG_PATH, 'w') as f:
+        yaml.dump(config, f, default_flow_style=False)
+
+def get_api_key(config):
+    """Get API key from config or environment."""
+    if config["api"]["key"]:
+        return config["api"]["key"]
+    
+    env_key = os.environ.get("MCP_API_KEY")
+    if env_key:
+        return env_key
+    
+    # If no key is configured, prompt the user
+    console.print("No API key found. Please enter your API key:", style="yellow")
+    key = input("> ")
+    
+    if key:
+        config["api"]["key"] = key
+        save_config(config)
+        return key
+    
+    console.print("No API key provided. Some features may not work.", style="red")
+    return None
+
+def make_api_request(endpoint, method="GET", data=None, config=None):
+    """Make an API request to the MCP backend."""
+    if config is None:
+        config = load_config()
+    
+    api_key = get_api_key(config)
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    
+    url = f"{config['api']['url']}/{endpoint.lstrip('/')}"
+    
+    try:
+        if method == "GET":
+            response = requests.get(url, headers=headers)
+        elif method == "POST":
+            response = requests.post(url, headers=headers, json=data)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+        
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        console.print(f"API request failed: {str(e)}", style="red")
+        return None
+
+def display_response(response_text, format_type="markdown"):
+    """Display a response with appropriate formatting."""
+    if format_type == "markdown":
+        console.print(Markdown(response_text))
+    else:
+        console.print(response_text)
+
+def chat_command(args, config):
+    """Start an interactive chat session."""
+    session_id = args.session_id
+    model_name = args.model or config["defaults"]["model"]
+    provider = args.provider or config["defaults"]["provider"]
+    agent_type = args.agent or config["defaults"]["agent"]
+    
+    console.print(Panel(f"Starting MCP Chat Session\nModel: {model_name} | Provider: {provider} | Agent: {agent_type}"))
+    console.print("Type 'exit' to quit, 'help' for commands", style="dim")
+    
+    # Set up prompt session with history
+    ensure_config_dir()
+    history_file = os.path.join(HISTORY_PATH, "chat_history")
+    session = PromptSession(
+        history=FileHistory(history_file),
+        auto_suggest=AutoSuggestFromHistory(),
+        completer=WordCompleter(['exit', 'help', 'models', 'clear', 'save', 'switch'])
+    )
+    
+    # Initial session data
+    if not session_id:
+        # Create a new session
+        pass
+    
+    while True:
+        try:
+            user_input = session.prompt(f"{Fore.GREEN}You: {Style.RESET_ALL}")
+            
+            if user_input.lower() in ('exit', 'quit'):
+                break
+            
+            if not user_input.strip():
+                continue
+            
+            # Handle special commands
+            if user_input.lower() == 'help':
+                console.print(Panel("""
+                Available commands:
+                - exit/quit: Exit the chat session
+                - clear: Clear the current conversation
+                - save FILENAME: Save conversation to file
+                - models: List available models
+                - switch MODEL: Switch to a different model
+                - provider PROVIDER: Switch to a different provider
+                """))
+                continue
+            
+            # For normal input, send to API
+            with Progress() as progress:
+                task = progress.add_task("[cyan]Generating response...", total=None)
+                
+                data = {
+                    "message": user_input,
+                    "session_id": session_id,
+                    "model_params": {
+                        "provider": provider,
+                        "model": model_name,
+                        "auto_select": provider == "auto"
+                    }
+                }
+                
+                response = make_api_request("chat", method="POST", data=data, config=config)
+                progress.update(task, completed=100)
+            
+            if response:
+                session_id = response["session_id"]
+                model_used = response.get("model_used", model_name)
+                provider_used = response.get("provider_used", provider)
+                
+                # Display provider and model info if configured
+                if config["output"]["show_model_info"]:
+                    console.print(f"\n{Fore.BLUE}MCP [{provider_used}:{model_used}]:{Style.RESET_ALL}")
+                else:
+                    console.print(f"\n{Fore.BLUE}MCP:{Style.RESET_ALL}")
+                
+                display_response(response["response"], config["output"]["format"])
+                console.print()  # Empty line for readability
+        
+        except KeyboardInterrupt:
+            break
+        except EOFError:
+            break
+        except Exception as e:
+            console.print(f"Error: {str(e)}", style="red")
+    
+    console.print("Chat session ended")
+
+def models_command(args, config):
+    """List and manage available models."""
+    if args.pull:
+        # Pull a new model for Ollama
+        console.print(f"Pulling Ollama model: {args.pull}")
+        
+        with Progress() as progress:
+            task = progress.add_task(f"[cyan]Pulling {args.pull}...", total=None)
+            
+            # This would actually call Ollama API
+            time.sleep(2)  # Simulating download
+            
+            progress.update(task, completed=100)
+        
+        console.print(f"Successfully pulled {args.pull}", style="green")
+        return
+    
+    # List available models
+    console.print(Panel("Available Models"))
+    
+    console.print("\n[bold]OpenAI Models:[/bold]")
+    openai_models = [
+        {"name": "gpt-4-turbo", "description": "Advanced reasoning, current knowledge"},
+        {"name": "gpt-3.5-turbo", "description": "Fast, efficient for standard tasks"}
+    ]
+    
+    for model in openai_models:
+        console.print(f"  • {model['name']} - {model['description']}")
+    
+    console.print("\n[bold]Ollama Models:[/bold]")
+    
+    # In a real implementation, this would fetch from Ollama API
+    ollama_models = [
+        {"name": "llama2", "description": "General purpose local model", "installed": True},
+        {"name": "mistral", "description": "Strong reasoning, 8k context window", "installed": True},
+        {"name": "codellama", "description": "Specialized for code generation", "installed": True},
+        {"name": "wizard-math", "description": "Mathematical problem-solving", "installed": False}
+    ]
+    
+    for model in ollama_models:
+        status = "[green]✓[/green]" if model["installed"] else "[red]✗[/red]"
+        console.print(f"  {status} {model['name']} - {model['description']}")
+    
+    console.print("\nUse 'mcp models --pull MODEL_NAME' to download a model")
+
+def config_command(args, config):
+    """View or edit configuration."""
+    if args.set:
+        # Set a configuration value
+        key, value = args.set.split('=', 1)
+        keys = key.split('.')
+        
+        # Navigate to the nested key
+        current = config
+        for k in keys[:-1]:
+            if k not in current:
+                current[k] = {}
+            current = current[k]
+        
+        # Set the value (with type conversion)
+        if value.lower() == 'true':
+            current[keys[-1]] = True
+        elif value.lower() == 'false':
+            current[keys[-1]] = False
+        elif value.isdigit():
+            current[keys[-1]] = int(value)
+        else:
+            current[keys[-1]] = value
+        
+        save_config(config)
+        console.print(f"Configuration updated: {key} = {value}", style="green")
+        return
+    
+    # Display current configuration
+    console.print(Panel("MCP Configuration"))
+    console.print(yaml.dump(config))
+    console.print("\nUse 'mcp config --set key.path=value' to change settings")
+
+def agent_command(args, config):
+    """Manage agent profiles."""
+    if args.create:
+        # Create a new agent profile
+        console.print(f"Creating agent profile: {args.create}")
+        # Implementation would collect agent parameters
+        return
+    
+    if args.edit:
+        # Edit an existing agent profile
+        console.print(f"Editing agent profile: {args.edit}")
+        return
+    
+    # List available agents
+    console.print(Panel("Available Agents"))
+    
+    console.print("\n[bold]System Agents:[/bold]")
+    system_agents = [
+        {"name": "general", "description": "General purpose assistant"},
+        {"name": "research", "description": "Research specialist with knowledge tools"},
+        {"name": "coding", "description": "Code assistant with tool integration"},
+        {"name": "creative", "description": "Creative writing and content generation"}
+    ]
+    
+    for agent in system_agents:
+        console.print(f"  • {agent['name']} - {agent['description']}")
+    
+    # In a real implementation, this would load from user config
+    custom_agents = [
+        {"name": "my-math-tutor", "description": "Mathematics teaching and problem solving"},
+        {"name": "data-analyst", "description": "Data analysis with visualization tools"}
+    ]
+    
+    if custom_agents:
+        console.print("\n[bold]Custom Agents:[/bold]")
+        for agent in custom_agents:
+            console.print(f"  • {agent['name']} - {agent['description']}")
+    
+    console.print("\nUse 'mcp agents --create NAME' to create a new agent")
+
+def main():
+    """Main entry point for the CLI."""
+    parser = argparse.ArgumentParser(description="MCP Command Line Interface")
+    parser.add_argument('--config', help="Path to config file")
+    parser.add_argument('--verbose', action='store_true', help="Enable verbose output")
+    
+    subparsers = parser.add_subparsers(dest='command', help='Command to run')
+    
+    # Chat command
+    chat_parser = subparsers.add_parser('chat', help='Start a chat session')
+    chat_parser.add_argument('--model', help='Model to use')
+    chat_parser.add_argument('--provider', choices=['openai', 'ollama', 'auto'], help='Provider to use')
+    chat_parser.add_argument('--agent', help='Agent type to use')
+    chat_parser.add_argument('--session-id', help='Resume an existing session')
+    
+    # Complete command (one-shot completion)
+    complete_parser = subparsers.add_parser('complete', help='Get a completion for a prompt')
+    complete_parser.add_argument('prompt', help='Prompt text')
+    complete_parser.add_argument('--model', help='Model to use')
+    complete_parser.add_argument('--provider', choices=['openai', 'ollama', 'auto'], help='Provider to use')
+    
+    # Models command
+    models_parser = subparsers.add_parser('models', help='List and manage available models')
+    models_parser.add_argument('--pull', metavar='MODEL_NAME', help='Download a model to Ollama')
+    models_parser.add_argument('--info', metavar='MODEL_NAME', help='Show detailed model information')
+    models_parser.add_argument('--benchmark', metavar='MODEL_NAME', help='Run performance benchmark')
+    
+    # Config command
+    config_parser = subparsers.add_parser('config', help='Configure MCP settings')
+    config_parser.add_argument('--set', metavar='KEY=VALUE', help='Set a configuration value')
+    
+    # Agents command
+    agents_parser = subparsers.add_parser('agents', help='Manage agent profiles')
+    agents_parser.add_argument('--create', metavar='NAME', help='Create a new custom agent')
+    agents_parser.add_argument('--edit', metavar='NAME', help='Edit an existing agent')
+    agents_parser.add_argument('--delete', metavar='NAME', help='Delete a custom agent')
+    
+    # Session command
+    session_parser = subparsers.add_parser('session', help='Manage saved sessions')
+    session_parser.add_argument('--list', action='store_true', help='List saved sessions')
+    session_parser.add_argument('--delete', metavar='SESSION_ID', help='Delete a session')
+    session_parser.add_argument('--export', metavar='SESSION_ID', help='Export a session')
+    
+    args = parser.parse_args()
+    
+    # Load configuration
+    config_path = args.config if args.config else CONFIG_PATH
+    
+    if args.config and not os.path.exists(args.config):
+        console.print(f"Config file not found: {args.config}", style="red")
+        return 1
+    
+    config = load_config()
+    
+    # Execute the appropriate command
+    if args.command == 'chat':
+        chat_command(args, config)
+    elif args.command == 'complete':
+        # Implementation for complete command
+        pass
+    elif args.command == 'models':
+        models_command(args, config)
+    elif args.command == 'config':
+        config_command(args, config)
+    elif args.command == 'agents':
+        agent_command(args, config)
+    elif args.command == 'session':
+        # Implementation for session command
+        pass
+    else:
+        # No command specified, show help
+        parser.print_help()
+    
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+## Web Interface Design
+
+### Web Interface Architecture
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                                                                    │
+│  React Frontend                                                    │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌───────────┐ │
+│  │ Chat         │ │ Model        │ │ Agent        │ │ Settings  │ │
+│  │ Interface    │ │ Management   │ │ Configuration│ │ Manager   │ │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └───────────┘ │
+│          │               │                │               │        │
+│          └───────────────┼────────────────┼───────────────┘        │
+│                          │                │                        │
+│                          ▼                ▼                        │
+│                    ┌─────────────┐  ┌────────────┐                │
+│                    │ Auth        │  │ API Client │                │
+│                    │ Management  │  │            │                │
+│                    └─────────────┘  └────────────┘                │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                                                                    │
+│  FastAPI Backend                                                   │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌───────────┐ │
+│  │ Chat         │ │ Model        │ │ Agent        │ │ User      │ │
+│  │ Controller   │ │ Controller   │ │ Controller   │ │ Controller│ │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └───────────┘ │
+│          │               │                │               │        │
+│          └───────────────┼────────────────┼───────────────┘        │
+│                          │                │                        │
+│                          ▼                ▼                        │
+│              ┌───────────────────┐  ┌────────────────────┐        │
+│              │ Provider Service  │  │ Agent Factory      │        │
+│              └───────────────────┘  └────────────────────┘        │
+│                       │                       │                   │
+│                       ▼                       ▼                   │
+│               ┌─────────────┐         ┌─────────────┐            │
+│               │ OpenAI API  │         │ Ollama API  │            │
+│               └─────────────┘         └─────────────┘            │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### Web Interface Wireframes
+
+#### Chat Interface
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MCP Assistant                                           🔄 New Chat  ⚙️  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌─────────────────────────┐  ┌───────────────────────────────────────┐ │
+│  │ Chat History            │  │                                       │ │
+│  │                         │  │ User: Tell me about quantum computing │ │
+│  │ Welcome                 │  │                                       │ │
+│  │ Quantum Computing       │  │ MCP: Quantum computing is a type of   │ │
+│  │ AI Ethics               │  │ computation that harnesses quantum    │ │
+│  │ Python Tutorial         │  │ mechanical phenomena like super-      │ │
+│  │                         │  │ position and entanglement.           │ │
+│  │                         │  │                                       │ │
+│  │                         │  │ Unlike classical bits that represent  │ │
+│  │                         │  │ either 0 or 1, quantum bits or        │ │
+│  │                         │  │ "qubits" can exist in multiple states │ │
+│  │                         │  │ simultaneously due to superposition.  │ │
+│  │                         │  │                                       │ │
+│  │                         │  │ [Response continues...]               │ │
+│  │                         │  │                                       │ │
+│  │                         │  │ User: How does quantum entanglement   │ │
+│  │                         │  │ work?                                 │ │
+│  │                         │  │                                       │ │
+│  │                         │  │ MCP is typing...                      │ │
+│  │                         │  │                                       │ │
+│  └─────────────────────────┘  └───────────────────────────────────────┘ │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ Type your message...                                      Send ▶ │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  Model: auto (OpenAI:gpt-4) | Mode: Research | Memory: Enabled          │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Model Settings Panel
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MCP Assistant > Settings > Models                                   ✖    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Model Selection                                                        │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ ● Auto-select model (recommended)                               │    │
+│  │ ○ Specify model and provider                                    │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  Provider                     Model                                     │
+│  ┌────────────┐               ┌────────────────────┐                    │
+│  │ OpenAI   ▼ │               │ gpt-4-turbo      ▼ │                    │
+│  └────────────┘               └────────────────────┘                    │
+│                                                                         │
+│  Auto-Selection Preferences                                             │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ Prioritize:  ● Speed   ○ Quality   ○ Privacy   ○ Cost           │    │
+│  │                                                                  │    │
+│  │ Complexity threshold: ███████████░░░░░░░░░  0.65                 │    │
+│  │                                                                  │    │
+│  │ [✓] Prefer Ollama for privacy-sensitive content                  │    │
+│  │ [✓] Use OpenAI for complex reasoning                            │    │
+│  │ [✓] Automatically fall back if a provider fails                  │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  Available Ollama Models                                                │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ ✓ llama2         ✓ mistral        ✓ codellama                   │    │
+│  │ ✓ wizard-math    ✓ neural-chat    ○ llama2:70b  [Download]      │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  [ Save Changes ]         [ Cancel ]                                    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Agent Configuration Panel
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MCP Assistant > Settings > Agents                                   ✖    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Current Agent: Research Assistant                             [Edit ✏] │
+│                                                                         │
+│  Agent Library                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ ● Research Assistant    Knowledge-focused with search capability│    │
+│  │ ○ Code Assistant        Specialized for software development    │    │
+│  │ ○ Creative Writer       Content creation and storytelling       │    │
+│  │ ○ Math Tutor            Step-by-step problem solving            │    │
+│  │ ○ General Assistant     Versatile helper for everyday tasks     │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  Agent Capabilities                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ [✓] Knowledge retrieval      [ ] Code execution                  │    │
+│  │ [✓] Web search              [ ] Data visualization              │    │
+│  │ [✓] Memory                  [ ] File operations                 │    │
+│  │ [✓] Calendar awareness      [ ] Email integration               │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  System Instructions                                                    │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ You are a research assistant with expertise in finding and       │    │
+│  │ synthesizing information. Provide comprehensive, accurate        │    │
+│  │ answers with authoritative sources when available.               │    │
+│  │                                                                  │    │
+│  │                                                                  │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  [ Save Agent ]   [ Create New Agent ]   [ Import ]   [ Export ]        │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Dashboard View
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MCP Assistant > Dashboard                                        ⚙️      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  System Status                                   Last 24 Hours          │
+│  ┌────────────────────────────┐   ┌────────────────────────────────┐    │
+│  │ OpenAI: ● Connected        │   │ Requests: 143                  │    │
+│  │ Ollama:  ● Connected       │   │ OpenAI: 62% | Ollama: 38%      │    │
+│  │ Database: ● Operational    │   │ Avg Response Time: 2.4s        │    │
+│  └────────────────────────────┘   └────────────────────────────────┘    │
+│                                                                         │
+│  Recent Conversations                                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ ● Quantum Computing Research       Today, 14:32   [Resume]      │    │
+│  │ ● Python Code Debugging           Today, 10:15   [Resume]      │    │
+│  │ ● Travel Planning                  Yesterday      [Resume]      │    │
+│  │ ● Financial Analysis               2 days ago     [Resume]      │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  Model Usage                          Agent Usage                       │
+│  ┌────────────────────────────┐   ┌────────────────────────────────┐    │
+│  │ ███ OpenAI:gpt-4      27%  │   │ ███ Research Assistant    42%  │    │
+│  │ ███ OpenAI:gpt-3.5    35%  │   │ ███ Code Assistant       31%  │    │
+│  │ ███ Ollama:mistral    20%  │   │ ███ General Assistant    18%  │    │
+│  │ ███ Ollama:llama2     18%  │   │ ███ Other                 9%  │    │
+│  └────────────────────────────┘   └────────────────────────────────┘    │
+│                                                                         │
+│  API Credits                                                            │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ OpenAI: $4.32 used this month of $10.00 budget  ████░░░░░ 43%   │    │
+│  │ Estimated savings from Ollama usage: $3.87                      │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  [ New Chat ]   [ View All Conversations ]   [ System Settings ]        │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Web Interface Interaction Flow
+
+```
+┌──────────────┐     ┌───────────────┐     ┌────────────────┐
+│              │     │               │     │                │
+│  Login Page  │────▶│  Dashboard    │────▶│  Chat Interface│◀───┐
+│              │     │               │     │                │    │
+└──────────────┘     └───────┬───────┘     └────────┬───────┘    │
+                             │                      │            │
+                             ▼                      ▼            │
+                     ┌───────────────┐     ┌────────────────┐    │
+                     │               │     │                │    │
+                     │Settings Panel │     │ User Message   │    │
+                     │               │     │                │    │
+                     └───┬───────────┘     └────────┬───────┘    │
+                         │                          │            │
+                         ▼                          ▼            │
+                ┌────────────────┐         ┌────────────────┐    │
+                │                │         │                │    │
+                │Model Settings  │         │API Processing  │    │
+                │                │         │                │    │
+                └────────┬───────┘         └────────┬───────┘    │
+                         │                          │            │
+                         ▼                          ▼            │
+                ┌────────────────┐         ┌────────────────┐    │
+                │                │         │                │    │
+                │Agent Settings  │         │System Response │────┘
+                │                │         │                │
+                └────────────────┘         └────────────────┘
+```
+
+### Key Web Components
+
+#### ProviderSelector Component
+
+```jsx
+// ProviderSelector.jsx
+import React, { useState, useEffect } from 'react';
+import { Dropdown, Switch, Slider, Checkbox, Button, Card, Alert } from 'antd';
+import { ApiOutlined, SettingOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+
+const ProviderSelector = ({ 
+  onProviderChange, 
+  onModelChange,
+  initialProvider = 'auto',
+  initialModel = null,
+  showAdvanced = false
+}) => {
+  const [provider, setProvider] = useState(initialProvider);
+  const [model, setModel] = useState(initialModel);
+  const [autoSelect, setAutoSelect] = useState(initialProvider === 'auto');
+  const [complexityThreshold, setComplexityThreshold] = useState(0.65);
+  const [prioritizePrivacy, setPrioritizePrivacy] = useState(false);
+  const [ollamaModels, setOllamaModels] = useState([]);
+  const [ollamaStatus, setOllamaStatus] = useState('unknown'); // 'online', 'offline', 'unknown'
+  const [openaiModels, setOpenaiModels] = useState([
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+  ]);
+  
+  // Fetch available Ollama models on component mount
+  useEffect(() => {
+    const fetchOllamaModels = async () => {
+      try {
+        const response = await fetch('/api/v1/models/ollama');
+        if (response.ok) {
+          const data = await response.json();
+          setOllamaModels(data.models.map(m => ({ 
+            value: m.name, 
+            label: m.name 
+          })));
+          setOllamaStatus('online');
+        } else {
+          setOllamaStatus('offline');
+        }
+      } catch (error) {
+        console.error('Error fetching Ollama models:', error);
+        setOllamaStatus('offline');
+      }
+    };
+    
+    fetchOllamaModels();
+  }, []);
+  
+  const handleProviderChange = (value) => {
+    setProvider(value);
+    onProviderChange(value);
+    
+    // Reset model when changing provider
+    setModel(null);
+    onModelChange(null);
+  };
+  
+  const handleModelChange = (value) => {
+    setModel(value);
+    onModelChange(value);
+  };
+  
+  const handleAutoSelectChange = (checked) => {
+    setAutoSelect(checked);
+    if (checked) {
+      setProvider('auto');
+      onProviderChange('auto');
+      setModel(null);
+      onModelChange(null);
+    } else {
+      // Default to OpenAI if disabling auto-select
+      setProvider('openai');
+      onProviderChange('openai');
+      setModel('gpt-3.5-turbo');
+      onModelChange('gpt-3.5-turbo');
+    }
+  };
+  
+  const providerOptions = [
+    { value: 'openai', label: 'OpenAI' },
+    { value: 'ollama', label: 'Ollama (Local)' },
+    { value: 'auto', label: 'Auto-select' }
+  ];
+  
+  return (
+    <Card title="Model Selection" extra={<QuestionCircleOutlined />}>
+      <div className="provider-selector">
+        <div className="selector-row">
+          <Switch 
+            checked={autoSelect} 
+            onChange={handleAutoSelectChange}
+            checkedChildren="Auto-select"
+            unCheckedChildren="Manual" 
+          />
+          <span className="selector-label">
+            {autoSelect ? 'Automatically select the best model for each query' : 'Manually choose provider and model'}
+          </span>
+        </div>
+        
+        {!autoSelect && (
+          <div className="selector-row model-selection">
+            <div className="provider-dropdown">
+              <span>Provider:</span>
+              <Dropdown
+                options={providerOptions}
+                value={provider}
+                onChange={handleProviderChange}
+                disabled={autoSelect}
+              />
+            </div>
+            
+            <div className="model-dropdown">
+              <span>Model:</span>
+              <Dropdown
+                options={provider === 'openai' ? openaiModels : ollamaModels}
+                value={model}
+                onChange={handleModelChange}
+                disabled={autoSelect}
+                placeholder="Select a model"
+              />
+            </div>
+          </div>
+        )}
+        
+        {provider === 'ollama' && ollamaStatus === 'offline' && (
+          <Alert
+            message="Ollama is currently offline"
+            description="Please start Ollama service to use local models."
+            type="warning"
+            showIcon
+          />
+        )}
+        
+        {showAdvanced && (
+          <div className="advanced-settings">
+            <div className="setting-header">Advanced Routing Settings</div>
+            
+            <div className="setting-row">
+              <span>Complexity threshold:</span>
+              <Slider
+                value={complexityThreshold}
+                onChange={setComplexityThreshold}
+                min={0}
+                max={1}
+                step={0.05}
+                disabled={!autoSelect}
+              />
+              <span className="setting-value">{complexityThreshold}</span>
+            </div>
+            
+            <div className="setting-row">
+              <Checkbox
+                checked={prioritizePrivacy}
+                onChange={e => setPrioritizePrivacy(e.target.checked)}
+                disabled={!autoSelect}
+              >
+                Prioritize privacy (prefer Ollama for sensitive content)
+              </Checkbox>
+            </div>
+            
+            <div className="model-status">
+              <div>
+                <ApiOutlined /> OpenAI: <span className="status-online">Connected</span>
+              </div>
+              <div>
+                <ApiOutlined /> Ollama: <span className={ollamaStatus === 'online' ? 'status-online' : 'status-offline'}>
+                  {ollamaStatus === 'online' ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+};
+
+export default ProviderSelector;
+```
+
+#### ChatInterface Component
+
+```jsx
+// ChatInterface.jsx
+import React, { useState, useEffect, useRef } from 'react';
+import { Input, Button, Spin, Avatar, Tooltip, Card, Typography, Dropdown, Menu } from 'antd';
+import { SendOutlined, UserOutlined, RobotOutlined, SettingOutlined, 
+         SaveOutlined, CopyOutlined, DeleteOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import ProviderSelector from './ProviderSelector';
+
+const { TextArea } = Input;
+const { Text, Title } = Typography;
+
+const ChatInterface = () => {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+  const [provider, setProvider] = useState('auto');
+  const [model, setModel] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const messagesEndRef = useRef(null);
+  
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+  
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+  
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    
+    // Add user message to chat
+    const userMessage = { role: 'user', content: input, timestamp: new Date() };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setLoading(true);
+    
+    try {
+      const response = await fetch('/api/v1/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: input,
+          session_id: sessionId,
+          model_params: {
+            provider: provider,
+            model: model,
+            auto_select: provider === 'auto'
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+      
+      const data = await response.json();
+      
+      // Update session ID if new
+      if (data.session_id && !sessionId) {
+        setSessionId(data.session_id);
+      }
+      
+      // Add assistant message to chat
+      const assistantMessage = { 
+        role: 'assistant', 
+        content: data.response, 
+        timestamp: new Date(),
+        metadata: {
+          model_used: data.model_used,
+          provider_used: data.provider_used
+        }
+      };
+      
+      setMessages(prev => [...prev, assistantMessage]);
+      
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Add error message
+      setMessages(prev => [...prev, { 
+        role: 'system', 
+        content: 'Error: Unable to get a response. Please try again.',
+        error: true,
+        timestamp: new Date()
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+  
+  const handleCopyMessage = (content) => {
+    navigator.clipboard.writeText(content);
+    // Could show a toast notification here
+  };
+  
+  const renderMessage = (message, index) => {
+    const isUser = message.role === 'user';
+    const isError = message.error;
+    
+    return (
+      <div 
+        key={index} 
+        className={`message-container ${isUser ? 'user-message' : 'assistant-message'} ${isError ? 'error-message' : ''}`}
+      >
+        <div className="message-avatar">
+          <Avatar 
+            icon={isUser ? <UserOutlined /> : <RobotOutlined />} 
+            style={{ backgroundColor: isUser ? '#1890ff' : '#52c41a' }}
+          />
+        </div>
+        
+        <div className="message-content">
+          <div className="message-header">
+            <Text strong>{isUser ? 'You' : 'MCP Assistant'}</Text>
+            {message.metadata && (
+              <Tooltip title="Model information">
+                <Text type="secondary" className="model-info">
+                  <InfoCircleOutlined /> {message.metadata.provider_used}:{message.metadata.model_used}
+                </Text>
+              </Tooltip>
+            )}
+            <Text type="secondary" className="message-time">
+              {message.timestamp.toLocaleTimeString()}
+            </Text>
+          </div>
+          
+          <div className="message-body">
+            <ReactMarkdown
+              children={message.content}
+              components={{
+                code({node, inline, className, children, ...props}) {
+                  const match = /language-(\w+)/.exec(className || '');
+                  return !inline && match ? (
+                    <SyntaxHighlighter
+                      children={String(children).replace(/\n$/, '')}
+                      style={tomorrow}
+                      language={match[1]}
+                      PreTag="div"
+                      {...props}
+                    />
+                  ) : (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  );
+                }
+              }}
+            />
+          </div>
+          
+          <div className="message-actions">
+            <Button 
+              type="text" 
+              size="small" 
+              icon={<CopyOutlined />} 
+              onClick={() => handleCopyMessage(message.content)}
+            >
+              Copy
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  const settingsMenu = (
+    <Card className="settings-panel">
+      <Title level={4}>Chat Settings</Title>
+      
+      <ProviderSelector 
+        onProviderChange={setProvider}
+        onModelChange={setModel}
+        initialProvider={provider}
+        initialModel={model}
+        showAdvanced={true}
+      />
+      
+      <div className="settings-actions">
+        <Button type="primary" onClick={() => setShowSettings(false)}>
+          Close Settings
+        </Button>
+      </div>
+    </Card>
+  );
+  
+  return (
+    <div className="chat-interface">
+      <div className="chat-header">
+        <Title level={3}>MCP Assistant</Title>
+        
+        <div className="header-actions">
+          <Button icon={<DeleteOutlined />} onClick={() => setMessages([])}>
+            Clear Chat
+          </Button>
+          <Button 
+            icon={<SettingOutlined />} 
+            type={showSettings ? 'primary' : 'default'}
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            Settings
+          </Button>
+        </div>
+      </div>
+      
+      {showSettings && settingsMenu}
+      
+      <div className="message-list">
+        {messages.length === 0 && (
+          <div className="empty-state">
+            <Title level={4}>Start a conversation</Title>
+            <Text>Ask a question or request information</Text>
+          </div>
+        )}
+        
+        {messages.map(renderMessage)}
+        
+        {loading && (
+          <div className="message-container assistant-message">
+            <div className="message-avatar">
+              <Avatar icon={<RobotOutlined />} style={{ backgroundColor: '#52c41a' }} />
+            </div>
+            <div className="message-content">
+              <div className="message-body typing-indicator">
+                <Spin /> MCP is thinking...
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div ref={messagesEndRef} />
+      </div>
+      
+      <div className="chat-input">
+        <TextArea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Type your message..."
+          autoSize={{ minRows: 1, maxRows: 4 }}
+          disabled={loading}
+        />
+        <Button 
+          type="primary" 
+          icon={<SendOutlined />} 
+          onClick={handleSend}
+          disabled={loading || !input.trim()}
+        >
+          Send
+        </Button>
+      </div>
+      
+      <div className="chat-footer">
+        <Text type="secondary">
+          Model: {provider === 'auto' ? 'Auto-select' : `${provider}:${model || 'default'}`}
+        </Text>
+        {sessionId && (
+          <Text type="secondary">Session ID: {sessionId}</Text>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ChatInterface;
+```
+
+#### AgentConfiguration Component
+
+```jsx
+// AgentConfiguration.jsx
+import React, { useState, useEffect } from 'react';
+import { Form, Input, Button, Select, Checkbox, Card, Typography, Tabs, message } from 'antd';
+import { SaveOutlined, PlusOutlined, ImportOutlined, ExportOutlined } from '@ant-design/icons';
+
+const { Title, Text } = Typography;
+const { TextArea } = Input;
+const { Option } = Select;
+const { TabPane } = Tabs;
+
+const AgentConfiguration = () => {
+  const [form] = Form.useForm();
+  const [agents, setAgents] = useState([]);
+  const [currentAgent, setCurrentAgent] = useState(null);
+  const [loading, setLoading] = useState(false);
+  
+  // Fetch available agents on component mount
+  useEffect(() => {
+    const fetchAgents = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/v1/agents');
+        if (response.ok) {
+          const data = await response.json();
+          setAgents(data.agents);
+          
+          // Set current agent to the first one
+          if (data.agents.length > 0) {
+            setCurrentAgent(data.agents[0]);
+            form.setFieldsValue(data.agents[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching agents:', error);
+        message.error('Failed to load agents');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAgents();
+  }, [form]);
+  
+  const handleAgentChange = (agentId) => {
+    const selected = agents.find(a => a.id === agentId);
+    if (selected) {
+      setCurrentAgent(selected);
+      form.setFieldsValue(selected);
+    }
+  };
+  
+  const handleSaveAgent = async (values) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/v1/agents/${currentAgent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values)
+      });
+      
+      if (response.ok) {
+        message.success('Agent configuration saved');
+        // Update local state
+        const updatedAgents = agents.map(a => 
+          a.id === currentAgent.id ? { ...a, ...values } : a
+        );
+        setAgents(updatedAgents);
+        setCurrentAgent({ ...currentAgent, ...values });
+      } else {
+        message.error('Failed to save agent configuration');
+      }
+    } catch (error) {
+      console.error('Error saving agent:', error);
+      message.error('Error saving agent configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleCreateAgent = () => {
+    form.resetFields();
+    form.setFieldsValue({
+      name: 'New Agent',
+      description: 'Custom assistant',
+      capabilities: [],
+      system_prompt: 'You are a helpful assistant.'
+    });
+    
+    setCurrentAgent(null); // Indicates we're creating a new agent
+  };
+  
+  const handleExportAgent = () => {
+    if (!currentAgent) return;
+    
+    const agentData = JSON.stringify(currentAgent, null, 2);
+    const blob = new Blob([agentData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentAgent.name.replace(/\s+/g, '_').toLowerCase()}_agent.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  
+  return (
+    <div className="agent-configuration">
+      <Card title={<Title level={4}>Agent Configuration</Title>}>
+        <div className="agent-actions">
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />} 
+            onClick={handleCreateAgent}
+          >
+            Create New Agent
+          </Button>
+          
+          <Button 
+            icon={<ExportOutlined />} 
+            onClick={handleExportAgent}
+            disabled={!currentAgent}
+          >
+            Export
+          </Button>
+          
+          <Button icon={<ImportOutlined />}>
+            Import
+          </Button>
+        </div>
+        
+        <div className="agent-selector">
+          <Text strong>Select Agent:</Text>
+          <Select
+            style={{ width: 300 }}
+            onChange={handleAgentChange}
+            value={currentAgent?.id}
+            loading={loading}
+          >
+            {agents.map(agent => (
+              <Option key={agent.id} value={agent.id}>
+                {agent.name} - {agent.description}
+              </Option>
+            ))}
+          </Select>
+        </div>
+        
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSaveAgent}
+          className="agent-form"
+        >
+          <Tabs defaultActiveKey="basic">
+            <TabPane tab="Basic Information" key="basic">
+              <Form.Item
+                name="name"
+                label="Agent Name"
+                rules={[{ required: true, message: 'Please enter an agent name' }]}
+              >
+                <Input placeholder="Agent name" />
+              </Form.Item>
+              
+              <Form.Item
+                name="description"
+                label="Description"
+                rules={[{ required: true, message: 'Please enter a description' }]}
+              >
+                <Input placeholder="Brief description of this agent's purpose" />
+              </Form.Item>
+              
+              <Form.Item
+                name="system_prompt"
+                label="System Instructions"
+                rules={[{ required: true, message: 'Please enter system instructions' }]}
+              >
+                <TextArea
+                  placeholder="Instructions that define the agent's behavior"
+                  autoSize={{ minRows: 4, maxRows: 8 }}
+                />
+              </Form.Item>
+            </TabPane>
+            
+            <TabPane tab="Capabilities" key="capabilities">
+              <Form.Item name="capabilities" label="Agent Capabilities">
+                <Checkbox.Group>
+                  <div className="capabilities-grid">
+                    <Checkbox value="knowledge_retrieval">Knowledge Retrieval</Checkbox>
+                    <Checkbox value="web_search">Web Search</Checkbox>
+                    <Checkbox value="memory">Long-term Memory</Checkbox>
+                    <Checkbox value="calendar">Calendar Awareness</Checkbox>
+                    <Checkbox value="code_execution">Code Execution</Checkbox>
+                    <Checkbox value="data_visualization">Data Visualization</Checkbox>
+                    <Checkbox value="file_operations">File Operations</Checkbox>
+                    <Checkbox value="email">Email Integration</Checkbox>
+                  </div>
+                </Checkbox.Group>
+              </Form.Item>
+              
+              <Form.Item name="preferred_models" label="Preferred Models">
+                <Select mode="multiple" placeholder="Select preferred models">
+                  <Option value="openai:gpt-4">OpenAI: GPT-4</Option>
+                  <Option value="openai:gpt-3.5-turbo">OpenAI: GPT-3.5 Turbo</Option>
+                  <Option value="ollama:llama2">Ollama: Llama2</Option>
+                  <Option value="ollama:mistral">Ollama: Mistral</Option>
+                  <Option value="ollama:codellama">Ollama: CodeLlama</Option>
+                </Select>
+              </Form.Item>
+            </TabPane>
+            
+            <TabPane tab="Advanced" key="advanced">
+              <Form.Item name="tool_configuration" label="Tool Configuration">
+                <TextArea
+                  placeholder="JSON configuration for tools (advanced)"
+                  autoSize={{ minRows: 4, maxRows: 8 }}
+                />
+              </Form.Item>
+              
+              <Form.Item name="temperature" label="Temperature">
+                <Select placeholder="Response creativity level">
+                  <Option value="0.2">0.2 - More deterministic/factual</Option>
+                  <Option value="0.5">0.5 - Balanced</Option>
+                  <Option value="0.8">0.8 - More creative/varied</Option>
+                </Select>
+              </Form.Item>
+            </TabPane>
+          </Tabs>
+          
+          <Form.Item>
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              icon={<SaveOutlined />}
+              loading={loading}
+            >
+              {currentAgent ? 'Save Changes' : 'Create Agent'}
+            </Button>
+          </Form.Item>
+        </Form>
+      </Card>
+    </div>
+  );
+};
+
+export default AgentConfiguration;
+```
+
+## User Interaction Flows
+
+### New User Onboarding Flow
+
+```
+┌────────────────┐     ┌────────────────┐     ┌────────────────┐
+│                │     │                │     │                │
+│ Welcome Screen │────▶│ Initial Setup  │────▶│ API Key Setup  │
+│                │     │                │     │                │
+└────────────────┘     └────────────────┘     └───────┬────────┘
+                                                      │
+┌────────────────┐     ┌────────────────┐     ┌───────▼────────┐
+│                │     │                │     │                │
+│  First Chat    │◀────│  Ollama Setup  │◀────│ Model Download │
+│                │     │                │     │                │
+└────────────────┘     └────────────────┘     └────────────────┘
+```
+
+### Task-Based User Flow Example
+
+```
+┌────────────────┐     ┌────────────────┐     ┌────────────────┐
+│                │     │                │     │                │
+│  Start Chat    │────▶│ Select Research│────▶│ Enter Research │
+│                │     │     Agent      │     │    Query       │
+└────────────────┘     └────────────────┘     └───────┬────────┘
+                                                      │
+┌────────────────┐     ┌────────────────┐     ┌───────▼────────┐
+│                │     │                │     │                │
+│  Save Results  │◀────│  Refine Query  │◀────│ View Response  │
+│                │     │                │     │ (Using OpenAI) │
+└────────────────┘     └────────────────┘     └────────────────┘
+```
+
+### Advanced Settings Flow
+
+```
+┌────────────────┐     ┌────────────────┐     ┌────────────────┐
+│                │     │                │     │                │
+│  Chat Screen   │────▶│ Settings Menu  │────▶│ Model Settings │
+│                │     │                │     │                │
+└────────────────┘     └────────────────┘     └───────┬────────┘
+                                                      │
+┌────────────────┐     ┌────────────────┐     ┌───────▼────────┐
+│                │     │                │     │                │
+│  Return to     │◀────│ Save Settings  │◀────│ Agent Settings │
+│    Chat        │     │                │     │                │
+└────────────────┘     └────────────────┘     └────────────────┘
+```
+
+## Implementation Recommendations
+
+1. **Responsive Design:** Ensure the web interface is mobile-friendly using responsive design principles
+2. **Accessibility:** Implement proper ARIA attributes and keyboard navigation for accessibility
+3. **Progressive Enhancement:** Build with a progressive enhancement approach where core functionality works without JavaScript
+4. **State Management:** Use context API or Redux for global state in more complex implementations
+5. **Offline Support:** Consider adding service workers for offline functionality in the web interface
+6. **CLI Shortcuts:** Implement tab completion and command history in the CLI for improved usability
+
+## Conclusion
+
+The proposed user interface designs for the MCP system provide a balance between simplicity and power, enabling users to leverage the hybrid OpenAI-Ollama architecture effectively. The CLI offers a lightweight, scriptable interface for technical users and automation scenarios, while the web interface provides a rich, interactive experience for broader adoption.
+
+Both interfaces expose the key capabilities of the system:
+
+1. **Intelligent Model Routing:** Users can leverage automatic model selection or manually choose specific models
+2. **Agent Specialization:** Configurable agents enable task-specific optimization
+3. **Privacy Controls:** Explicit options for privacy-sensitive content
+4. **Performance Analytics:** Visibility into system usage, costs, and efficiency
+
+These interfaces serve as the critical touchpoint between users and the sophisticated underlying architecture, making complex AI capabilities accessible and manageable.
