@@ -4047,3 +4047,3359 @@ The integration of Ollama with OpenAI's Agent SDK creates a sophisticated hybrid
 5. **Seamless integration** with the agent framework and tools ecosystem
 
 This architecture represents a significant advancement in responsible AI deployment, balancing the power of cloud-based models with the privacy and cost benefits of local inference. By intelligently routing requests based on their characteristics, the system provides optimal performance while respecting critical constraints around privacy, latency, and resource utilization.
+
+# Comprehensive Testing Strategy for OpenAI-Ollama Hybrid Agent System
+
+## Theoretical Framework for Validation Methodology
+
+The integration of cloud-based and local inferencing capabilities within a unified agent architecture necessitates a multifaceted testing approach that encompasses both individual components and their systemic interactions. This document establishes a rigorous testing framework that addresses the unique challenges of validating a hybrid AI system across multiple dimensions of functionality, performance, and reliability.
+
+## Strategic Testing Layers
+
+### 1. Unit Testing Framework
+
+#### Core Component Isolation Testing
+
+```python
+# tests/unit/test_provider_service.py
+import pytest
+import asyncio
+from unittest.mock import AsyncMock, patch, MagicMock
+import json
+
+from app.services.provider_service import ProviderService, Provider
+from app.services.ollama_service import OllamaService
+
+class TestProviderService:
+    @pytest.fixture
+    def provider_service(self):
+        """Create a provider service with mocked dependencies for testing."""
+        service = ProviderService()
+        service.openai_client = AsyncMock()
+        service.ollama_service = AsyncMock(spec=OllamaService)
+        return service
+    
+    @pytest.mark.asyncio
+    async def test_select_provider_and_model_explicit(self, provider_service):
+        """Test explicit provider and model selection."""
+        # Test explicit provider:model format
+        provider, model = await provider_service._select_provider_and_model(
+            messages=[{"role": "user", "content": "Hello"}],
+            model="openai:gpt-4"
+        )
+        assert provider == Provider.OPENAI
+        assert model == "gpt-4"
+        
+        # Test explicit provider with default model
+        provider, model = await provider_service._select_provider_and_model(
+            messages=[{"role": "user", "content": "Hello"}],
+            provider="ollama"
+        )
+        assert provider == Provider.OLLAMA
+        assert model == provider_service.default_ollama_model
+    
+    @pytest.mark.asyncio
+    async def test_auto_routing_complex_content(self, provider_service):
+        """Test auto-routing with complex content."""
+        # Mock complexity assessment to return high complexity
+        provider_service._assess_complexity = AsyncMock(return_value=0.8)
+        provider_service.model_selection_criteria.complexity_threshold = 0.7
+        
+        provider = await provider_service._auto_route(
+            messages=[{"role": "user", "content": "Complex technical question"}]
+        )
+        
+        assert provider == Provider.OPENAI
+        provider_service._assess_complexity.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_auto_routing_privacy_sensitive(self, provider_service):
+        """Test auto-routing with privacy sensitive content."""
+        provider_service.model_selection_criteria.privacy_sensitive_tokens = ["password", "secret"]
+        
+        provider = await provider_service._auto_route(
+            messages=[{"role": "user", "content": "What is my password?"}]
+        )
+        
+        assert provider == Provider.OLLAMA
+    
+    @pytest.mark.asyncio
+    async def test_auto_routing_with_tools(self, provider_service):
+        """Test auto-routing with tool requirements."""
+        provider = await provider_service._auto_route(
+            messages=[{"role": "user", "content": "Simple question"}],
+            tools=[{"type": "function", "function": {"name": "get_weather"}}]
+        )
+        
+        assert provider == Provider.OPENAI
+    
+    @pytest.mark.asyncio
+    async def test_generate_completion_openai(self, provider_service):
+        """Test generating completion with OpenAI."""
+        # Setup mock response
+        mock_response = MagicMock()
+        mock_response.model_dump.return_value = {
+            "id": "test-id",
+            "object": "chat.completion",
+            "model": "gpt-4",
+            "usage": {"total_tokens": 10},
+            "message": {"content": "Test response"}
+        }
+        provider_service.openai_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        
+        response = await provider_service._generate_openai_completion(
+            messages=[{"role": "user", "content": "Hello"}],
+            model="gpt-4"
+        )
+        
+        assert response["message"]["content"] == "Test response"
+        provider_service.openai_client.chat.completions.create.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_generate_completion_ollama(self, provider_service):
+        """Test generating completion with Ollama."""
+        provider_service.ollama_service.generate_completion.return_value = {
+            "id": "ollama-test",
+            "model": "llama2",
+            "provider": "ollama",
+            "message": {"content": "Ollama response"}
+        }
+        
+        response = await provider_service._generate_ollama_completion(
+            messages=[{"role": "user", "content": "Hello"}],
+            model="llama2"
+        )
+        
+        assert response["message"]["content"] == "Ollama response"
+        provider_service.ollama_service.generate_completion.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_fallback_mechanism(self, provider_service):
+        """Test fallback mechanism when primary provider fails."""
+        # Mock the primary provider (OpenAI) to fail
+        provider_service._generate_openai_completion = AsyncMock(side_effect=Exception("API error"))
+        
+        # Mock the fallback provider (Ollama) to succeed
+        provider_service._generate_ollama_completion = AsyncMock(return_value={
+            "id": "ollama-fallback",
+            "provider": "ollama",
+            "message": {"content": "Fallback response"}
+        })
+        
+        # Test the generate_completion method with auto provider
+        response = await provider_service.generate_completion(
+            messages=[{"role": "user", "content": "Hello"}],
+            provider="auto"
+        )
+        
+        # Check that fallback was used
+        assert response["provider"] == "ollama"
+        assert response["message"]["content"] == "Fallback response"
+        provider_service._generate_openai_completion.assert_called_once()
+        provider_service._generate_ollama_completion.assert_called_once()
+```
+
+#### Model Selection Logic Testing
+
+```python
+# tests/unit/test_model_selection.py
+import pytest
+from unittest.mock import AsyncMock, patch
+import json
+
+from app.models.model_catalog import recommend_ollama_model, OLLAMA_MODELS
+from app.agents.adaptive_agent import AdaptiveAgent
+
+class TestModelSelection:
+    @pytest.mark.parametrize("use_case,performance_tier,expected_model", [
+        ("code_generation", "high", "codellama:34b"),
+        ("creative_writing", "medium", "dolphin-mistral"),
+        ("mathematical_reasoning", "low", "orca-mini"),
+        ("conversational", "high", "neural-chat"),
+        ("knowledge_intensive", "high", "llama2:70b"),
+        ("resource_constrained", "low", "phi"),
+    ])
+    def test_model_recommendations(self, use_case, performance_tier, expected_model):
+        """Test model recommendation logic for different use cases."""
+        model = recommend_ollama_model(use_case, performance_tier)
+        assert model == expected_model
+    
+    @pytest.mark.asyncio
+    async def test_adaptive_agent_use_case_detection(self):
+        """Test adaptive agent's use case detection logic."""
+        provider_service = AsyncMock()
+        agent = AdaptiveAgent(
+            provider_service=provider_service,
+            system_prompt="You are a helpful assistant."
+        )
+        
+        # Test code-related message
+        code_use_case = await agent._determine_use_case(
+            "Can you help me write a Python function to calculate Fibonacci numbers?"
+        )
+        assert code_use_case == "code_generation"
+        
+        # Test creative writing message
+        creative_use_case = await agent._determine_use_case(
+            "Write a short story about a robot discovering emotions."
+        )
+        assert creative_use_case == "creative_writing"
+        
+        # Test mathematical reasoning message
+        math_use_case = await agent._determine_use_case(
+            "Solve this equation: 3x² + 2x - 5 = 0"
+        )
+        assert math_use_case == "mathematical_reasoning"
+    
+    @pytest.mark.asyncio
+    async def test_complexity_assessment(self):
+        """Test complexity assessment logic."""
+        provider_service = AsyncMock()
+        agent = AdaptiveAgent(
+            provider_service=provider_service,
+            system_prompt="You are a helpful assistant."
+        )
+        
+        # Simple message
+        simple_message = "What time is it?"
+        is_complex_simple = await agent._is_complex_request(simple_message)
+        assert not is_complex_simple
+        
+        # Complex message
+        complex_message = "Can you provide a detailed analysis of the socioeconomic factors that contributed to the Industrial Revolution in England, and compare those with the conditions in contemporary developing economies?"
+        is_complex_detailed = await agent._is_complex_request(complex_message)
+        assert is_complex_detailed
+        
+        # Multiple questions
+        multi_question = "What is quantum computing? How does it differ from classical computing? What are its potential applications?"
+        is_complex_multi = await agent._is_complex_request(multi_question)
+        assert is_complex_multi
+```
+
+#### Ollama Service Testing
+
+```python
+# tests/unit/test_ollama_service.py
+import pytest
+import json
+import asyncio
+from unittest.mock import AsyncMock, patch, MagicMock
+
+from app.services.ollama_service import OllamaService
+
+class TestOllamaService:
+    @pytest.fixture
+    def ollama_service(self):
+        """Create an Ollama service with mocked session for testing."""
+        service = OllamaService()
+        service.session = AsyncMock()
+        return service
+    
+    @pytest.mark.asyncio
+    async def test_list_models(self, ollama_service):
+        """Test listing available models."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value={"models": [
+            {"name": "llama2"},
+            {"name": "mistral"}
+        ]})
+        
+        # Mock the context manager
+        ollama_service.session.get = AsyncMock()
+        ollama_service.session.get.return_value.__aenter__.return_value = mock_response
+        
+        models = await ollama_service.list_models()
+        
+        assert len(models) == 2
+        assert models[0]["name"] == "llama2"
+        assert models[1]["name"] == "mistral"
+    
+    @pytest.mark.asyncio
+    async def test_generate_completion(self, ollama_service):
+        """Test generating a completion."""
+        # Mock the response
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value={
+            "id": "test-id",
+            "response": "This is a test response",
+            "created_at": 1677858242
+        })
+        
+        # Mock the context manager
+        ollama_service.session.post = AsyncMock()
+        ollama_service.session.post.return_value.__aenter__.return_value = mock_response
+        
+        # Test the completion generation
+        response = await ollama_service._generate_completion_sync({
+            "model": "llama2",
+            "prompt": "Hello, world!",
+            "stream": False,
+            "options": {"temperature": 0.7}
+        })
+        
+        # Check the formatted response
+        assert "message" in response
+        assert response["message"]["content"] == "This is a test response"
+        assert response["provider"] == "ollama"
+    
+    @pytest.mark.asyncio
+    async def test_format_messages_for_ollama(self, ollama_service):
+        """Test formatting messages for Ollama."""
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Hello!"},
+            {"role": "assistant", "content": "Hi there!"},
+            {"role": "user", "content": "How are you?"}
+        ]
+        
+        formatted = ollama_service._format_messages_for_ollama(messages)
+        
+        assert "[System]" in formatted
+        assert "[User]" in formatted
+        assert "[Assistant]" in formatted
+        assert "You are a helpful assistant." in formatted
+        assert "Hello!" in formatted
+        assert "How are you?" in formatted
+    
+    @pytest.mark.asyncio
+    async def test_tool_call_extraction(self, ollama_service):
+        """Test extracting tool calls from response text."""
+        # Response with a tool call
+        response_with_tool = """
+        I'll help you get the weather information.
+        
+        <tool>
+        {
+          "name": "get_weather",
+          "parameters": {
+            "location": "New York",
+            "unit": "celsius"
+          }
+        }
+        </tool>
+        
+        Let me check the weather for you.
+        """
+        
+        tool_calls = ollama_service._extract_tool_calls(response_with_tool)
+        
+        assert tool_calls is not None
+        assert len(tool_calls) == 1
+        assert tool_calls[0]["function"]["name"] == "get_weather"
+        assert "New York" in tool_calls[0]["function"]["arguments"]
+        
+        # Response without a tool call
+        response_without_tool = "The weather in New York is sunny."
+        assert ollama_service._extract_tool_calls(response_without_tool) is None
+    
+    @pytest.mark.asyncio
+    async def test_clean_tool_calls_from_text(self, ollama_service):
+        """Test cleaning tool calls from response text."""
+        response_with_tool = """
+        I'll help you get the weather information.
+        
+        <tool>
+        {
+          "name": "get_weather",
+          "parameters": {
+            "location": "New York",
+            "unit": "celsius"
+          }
+        }
+        </tool>
+        
+        Let me check the weather for you.
+        """
+        
+        cleaned = ollama_service._clean_tool_calls_from_text(response_with_tool)
+        
+        assert "<tool>" not in cleaned
+        assert "get_weather" not in cleaned
+        assert "I'll help you get the weather information." in cleaned
+        assert "Let me check the weather for you." in cleaned
+```
+
+#### Tool Integration Testing
+
+```python
+# tests/unit/test_tool_integration.py
+import pytest
+from unittest.mock import AsyncMock, patch
+import json
+
+from app.agents.task_agent import TaskManagementAgent
+from app.models.message import Message, MessageRole
+
+class TestToolIntegration:
+    @pytest.fixture
+    def task_agent(self):
+        """Create a task agent with mocked services."""
+        provider_service = AsyncMock()
+        task_service = AsyncMock()
+        
+        agent = TaskManagementAgent(
+            provider_service=provider_service,
+            task_service=task_service,
+            system_prompt="You are a task management agent."
+        )
+        
+        return agent
+    
+    @pytest.mark.asyncio
+    async def test_process_tool_calls_list_tasks(self, task_agent):
+        """Test processing the list_tasks tool call."""
+        # Mock task service response
+        task_agent.task_service.list_tasks.return_value = [
+            {
+                "id": "task1",
+                "title": "Complete report",
+                "status": "pending",
+                "priority": "high",
+                "due_date": "2023-04-15",
+                "description": "Finish quarterly report"
+            }
+        ]
+        
+        # Create a tool call for list_tasks
+        tool_calls = [{
+            "id": "call_123",
+            "function": {
+                "name": "list_tasks",
+                "arguments": json.dumps({
+                    "status": "pending",
+                    "limit": 5
+                })
+            }
+        }]
+        
+        # Process the tool calls
+        tool_responses = await task_agent._process_tool_calls(tool_calls, "user123")
+        
+        # Verify the response
+        assert len(tool_responses) == 1
+        assert tool_responses[0]["tool_call_id"] == "call_123"
+        assert "Complete report" in tool_responses[0]["content"]
+        assert "pending" in tool_responses[0]["content"]
+        
+        # Verify service was called correctly
+        task_agent.task_service.list_tasks.assert_called_once_with(
+            user_id="user123",
+            status="pending",
+            limit=5
+        )
+    
+    @pytest.mark.asyncio
+    async def test_process_tool_calls_create_task(self, task_agent):
+        """Test processing the create_task tool call."""
+        # Mock task service response
+        task_agent.task_service.create_task.return_value = {
+            "id": "new_task",
+            "title": "New test task"
+        }
+        
+        # Create a tool call for create_task
+        tool_calls = [{
+            "id": "call_456",
+            "function": {
+                "name": "create_task",
+                "arguments": json.dumps({
+                    "title": "New test task",
+                    "description": "This is a test task",
+                    "priority": "medium"
+                })
+            }
+        }]
+        
+        # Process the tool calls
+        tool_responses = await task_agent._process_tool_calls(tool_calls, "user123")
+        
+        # Verify the response
+        assert len(tool_responses) == 1
+        assert tool_responses[0]["tool_call_id"] == "call_456"
+        assert "Task created successfully" in tool_responses[0]["content"]
+        assert "New test task" in tool_responses[0]["content"]
+        
+        # Verify service was called correctly
+        task_agent.task_service.create_task.assert_called_once_with(
+            user_id="user123",
+            title="New test task",
+            description="This is a test task",
+            due_date=None,
+            priority="medium"
+        )
+    
+    @pytest.mark.asyncio
+    async def test_generate_response_with_tools(self, task_agent):
+        """Test the full generate_response flow with tool usage."""
+        # Set up the conversation history
+        task_agent.state.conversation_history = [
+            Message(role=MessageRole.SYSTEM, content="You are a task management agent."),
+            Message(role=MessageRole.USER, content="List my pending tasks")
+        ]
+        
+        # Mock provider service to return a response with tool calls first
+        mock_response_with_tools = {
+            "message": {
+                "content": "I'll list your tasks",
+                "tool_calls": [{
+                    "id": "call_123",
+                    "function": {
+                        "name": "list_tasks",
+                        "arguments": json.dumps({
+                            "status": "pending",
+                            "limit": 10
+                        })
+                    }
+                }]
+            },
+            "tool_calls": [{
+                "id": "call_123",
+                "function": {
+                    "name": "list_tasks",
+                    "arguments": json.dumps({
+                        "status": "pending",
+                        "limit": 10
+                    })
+                }
+            }]
+        }
+        
+        # Mock task service
+        task_agent.task_service.list_tasks.return_value = [
+            {
+                "id": "task1",
+                "title": "Complete report",
+                "status": "pending",
+                "priority": "high",
+                "due_date": "2023-04-15",
+                "description": "Finish quarterly report"
+            }
+        ]
+        
+        # Mock final response after tool processing
+        mock_final_response = {
+            "message": {
+                "content": "You have 1 pending task: Complete report (high priority, due Apr 15)"
+            }
+        }
+        
+        # Set up the mocked provider service
+        task_agent.provider_service.generate_completion = AsyncMock()
+        task_agent.provider_service.generate_completion.side_effect = [
+            mock_response_with_tools,  # First call returns tool calls
+            mock_final_response        # Second call returns final response
+        ]
+        
+        # Generate the response
+        response = await task_agent._generate_response("user123")
+        
+        # Verify the final response
+        assert response == "You have 1 pending task: Complete report (high priority, due Apr 15)"
+        
+        # Verify the provider service was called twice
+        assert task_agent.provider_service.generate_completion.call_count == 2
+        
+        # Verify the task service was called
+        task_agent.task_service.list_tasks.assert_called_once()
+        
+        # Verify tool response was added to conversation history
+        tool_messages = [msg for msg in task_agent.state.conversation_history if msg.role == MessageRole.TOOL]
+        assert len(tool_messages) == 1
+```
+
+### 2. Integration Testing Framework
+
+#### API Endpoint Testing
+
+```python
+# tests/integration/test_api_endpoints.py
+import pytest
+from fastapi.testclient import TestClient
+import json
+import os
+from unittest.mock import patch, AsyncMock
+
+from app.main import app
+from app.services.provider_service import ProviderService
+
+client = TestClient(app)
+
+class TestAPIEndpoints:
+    @pytest.fixture(autouse=True)
+    def setup_mocks(self):
+        """Set up mocks for services."""
+        # Patch the provider service
+        with patch('app.controllers.agent_controller.get_agent_factory') as mock_factory:
+            mock_provider = AsyncMock(spec=ProviderService)
+            mock_factory.return_value.provider_service = mock_provider
+            yield
+    
+    def test_health_endpoint(self):
+        """Test the health check endpoint."""
+        response = client.get("/api/health")
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+    
+    def test_chat_endpoint_auth_required(self):
+        """Test that chat endpoint requires authentication."""
+        response = client.post(
+            "/api/v1/chat",
+            json={"message": "Hello"}
+        )
+        assert response.status_code == 401  # Unauthorized
+    
+    def test_chat_endpoint_with_auth(self):
+        """Test the chat endpoint with proper authentication."""
+        # Mock the authentication
+        with patch('app.services.auth_service.get_current_user') as mock_auth:
+            mock_auth.return_value = {"id": "test_user"}
+            
+            # Mock the agent's process_message
+            with patch('app.agents.base_agent.BaseAgent.process_message') as mock_process:
+                mock_process.return_value = "Hello, I'm an AI assistant."
+                
+                response = client.post(
+                    "/api/v1/chat",
+                    json={"message": "Hi there"},
+                    headers={"Authorization": "Bearer test_token"}
+                )
+                
+                assert response.status_code == 200
+                assert "response" in response.json()
+                assert response.json()["response"] == "Hello, I'm an AI assistant."
+    
+    def test_model_recommendation_endpoint(self):
+        """Test the model recommendation endpoint."""
+        # Mock the authentication
+        with patch('app.services.auth_service.get_current_user') as mock_auth:
+            mock_auth.return_value = {"id": "test_user"}
+            
+            response = client.get(
+                "/api/v1/agents/models/recommend?use_case=code_generation&performance_tier=high",
+                headers={"Authorization": "Bearer test_token"}
+            )
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert "ollama_recommendation" in data
+            assert data["use_case"] == "code_generation"
+            assert data["performance_tier"] == "high"
+    
+    def test_streaming_endpoint(self):
+        """Test the streaming endpoint."""
+        # Mock the authentication
+        with patch('app.services.auth_service.get_current_user') as mock_auth:
+            mock_auth.return_value = {"id": "test_user"}
+            
+            # Mock the streaming generator
+            async def mock_stream_generator():
+                yield {"id": "1", "content": "Hello"}
+                yield {"id": "2", "content": " World"}
+            
+            # Mock the stream method
+            with patch('app.services.provider_service.ProviderService.stream_completion') as mock_stream:
+                mock_stream.return_value = mock_stream_generator()
+                
+                response = client.post(
+                    "/api/v1/chat/streaming",
+                    json={"message": "Hi", "stream": True},
+                    headers={"Authorization": "Bearer test_token"}
+                )
+                
+                assert response.status_code == 200
+                assert response.headers["content-type"] == "text/event-stream"
+                
+                # Parse the streaming response
+                content = response.content.decode()
+                assert "data:" in content
+                assert "Hello" in content
+                assert "World" in content
+```
+
+#### End-to-End Agent Flow Testing
+
+```python
+# tests/integration/test_agent_flows.py
+import pytest
+import asyncio
+from unittest.mock import AsyncMock, patch
+import json
+
+from app.agents.meta_agent import MetaAgent, AgentSubsystem
+from app.agents.research_agent import ResearchAgent
+from app.agents.conversation_manager import ConversationManager
+from app.models.message import Message, MessageRole
+
+class TestAgentFlows:
+    @pytest.fixture
+    async def meta_agent_setup(self):
+        """Set up a meta agent with subsystems for testing."""
+        # Create mocked services
+        provider_service = AsyncMock()
+        knowledge_service = AsyncMock()
+        memory_service = AsyncMock()
+        
+        # Create subsystem agents
+        research_agent = ResearchAgent(
+            provider_service=provider_service,
+            knowledge_service=knowledge_service,
+            system_prompt="You are a research agent."
+        )
+        
+        conversation_agent = ConversationManager(
+            provider_service=provider_service,
+            system_prompt="You are a conversation management agent."
+        )
+        
+        # Create meta agent
+        meta_agent = MetaAgent(
+            provider_service=provider_service,
+            system_prompt="You are a meta agent that coordinates specialized agents."
+        )
+        
+        # Add subsystems
+        meta_agent.add_subsystem(AgentSubsystem(
+            name="research",
+            agent=research_agent,
+            role="Knowledge retrieval specialist"
+        ))
+        
+        meta_agent.add_subsystem(AgentSubsystem(
+            name="conversation",
+            agent=conversation_agent,
+            role="Conversation flow manager"
+        ))
+        
+        # Return the setup
+        return {
+            "meta_agent": meta_agent,
+            "provider_service": provider_service,
+            "knowledge_service": knowledge_service,
+            "research_agent": research_agent,
+            "conversation_agent": conversation_agent
+        }
+    
+    @pytest.mark.asyncio
+    async def test_meta_agent_routing(self, meta_agent_setup):
+        """Test the meta agent's routing logic."""
+        meta_agent = meta_agent_setup["meta_agent"]
+        provider_service = meta_agent_setup["provider_service"]
+        
+        # Setup conversation history
+        meta_agent.state.conversation_history = [
+            Message(role=MessageRole.SYSTEM, content="You are a meta agent."),
+            Message(role=MessageRole.USER, content="Tell me about quantum computing")
+        ]
+        
+        # Mock the routing response to use research subsystem
+        routing_response = {
+            "message": {
+                "content": "I'll route this to the research subsystem"
+            },
+            "tool_calls": [{
+                "id": "call_123",
+                "function": {
+                    "name": "route_to_subsystem",
+                    "arguments": json.dumps({
+                        "subsystem": "research",
+                        "task": "Tell me about quantum computing",
+                        "context": {}
+                    })
+                }
+            }]
+        }
+        
+        # Mock the research agent's response
+        research_response = "Quantum computing is a type of computing that uses quantum-mechanical phenomena, such as superposition and entanglement, to perform operations on data."
+        meta_agent_setup["research_agent"].process_message = AsyncMock(return_value=research_response)
+        
+        # Mock the provider service responses
+        provider_service.generate_completion.side_effect = [
+            routing_response,  # First call for routing decision
+        ]
+        
+        # Generate response
+        response = await meta_agent._generate_response("user123")
+        
+        # Verify routing happened correctly
+        assert "[research" in response
+        assert "Quantum computing" in response
+        
+        # Verify the research agent was called
+        meta_agent_setup["research_agent"].process_message.assert_called_once_with(
+            "Tell me about quantum computing", "user123"
+        )
+    
+    @pytest.mark.asyncio
+    async def test_meta_agent_parallel_processing(self, meta_agent_setup):
+        """Test the meta agent's parallel processing logic."""
+        meta_agent = meta_agent_setup["meta_agent"]
+        provider_service = meta_agent_setup["provider_service"]
+        
+        # Setup conversation history
+        meta_agent.state.conversation_history = [
+            Message(role=MessageRole.SYSTEM, content="You are a meta agent."),
+            Message(role=MessageRole.USER, content="Explain the impacts of AI on society")
+        ]
+        
+        # Mock the routing response to use parallel processing
+        routing_response = {
+            "message": {
+                "content": "I'll process this with multiple subsystems"
+            },
+            "tool_calls": [{
+                "id": "call_456",
+                "function": {
+                    "name": "parallel_processing",
+                    "arguments": json.dumps({
+                        "task": "Explain the impacts of AI on society",
+                        "subsystems": ["research", "conversation"]
+                    })
+                }
+            }]
+        }
+        
+        # Mock each agent's response
+        research_response = "From a research perspective, AI impacts society through automation, economic transformation, and ethical considerations."
+        conversation_response = "From a conversational perspective, AI is changing how we interact with technology and each other."
+        
+        meta_agent_setup["research_agent"].process_message = AsyncMock(return_value=research_response)
+        meta_agent_setup["conversation_agent"].process_message = AsyncMock(return_value=conversation_response)
+        
+        # Mock synthesis response
+        synthesis_response = {
+            "message": {
+                "content": "AI has multifaceted impacts on society. From a research perspective, it drives automation and economic transformation. From a conversational perspective, it changes human-technology interaction patterns."
+            }
+        }
+        
+        # Mock the provider service responses
+        provider_service.generate_completion.side_effect = [
+            routing_response,    # First call for routing decision
+            synthesis_response   # Second call for synthesis
+        ]
+        
+        # Generate response
+        response = await meta_agent._generate_response("user123")
+        
+        # Verify synthesis happened correctly
+        assert "multifaceted impacts" in response
+        assert provider_service.generate_completion.call_count == 2
+        
+        # Verify both agents were called
+        meta_agent_setup["research_agent"].process_message.assert_called_once()
+        meta_agent_setup["conversation_agent"].process_message.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_research_agent_knowledge_retrieval(self, meta_agent_setup):
+        """Test the research agent's knowledge retrieval capabilities."""
+        research_agent = meta_agent_setup["research_agent"]
+        provider_service = meta_agent_setup["provider_service"]
+        knowledge_service = meta_agent_setup["knowledge_service"]
+        
+        # Setup conversation history
+        research_agent.state.conversation_history = [
+            Message(role=MessageRole.SYSTEM, content="You are a research agent."),
+            Message(role=MessageRole.USER, content="What are the latest developments in fusion energy?")
+        ]
+        
+        # Mock knowledge retrieval results
+        knowledge_service.search.return_value = [
+            {
+                "id": "doc1",
+                "title": "Recent Fusion Breakthrough",
+                "content": "Scientists achieved net energy gain in fusion reaction at NIF in December 2022.",
+                "relevance_score": 0.95
+            },
+            {
+                "id": "doc2",
+                "title": "Commercial Fusion Startups",
+                "content": "Several startups including Commonwealth Fusion Systems are working on commercial fusion reactors.",
+                "relevance_score": 0.89
+            }
+        ]
+        
+        # Mock initial response with tool calls
+        tool_call_response = {
+            "message": {
+                "content": "Let me search for information on fusion energy."
+            },
+            "tool_calls": [{
+                "id": "call_789",
+                "function": {
+                    "name": "search_knowledge_base",
+                    "arguments": json.dumps({
+                        "query": "latest developments fusion energy",
+                        "max_results": 3
+                    })
+                }
+            }]
+        }
+        
+        # Mock final response with knowledge incorporated
+        final_response = {
+            "message": {
+                "content": "Recent developments in fusion energy include a breakthrough at NIF in December 2022 achieving net energy gain, and advances from startups like Commonwealth Fusion Systems working on commercial reactors."
+            }
+        }
+        
+        # Mock the provider service responses
+        provider_service.generate_completion.side_effect = [
+            tool_call_response,  # First call with tool request
+            final_response       # Second call with knowledge incorporated
+        ]
+        
+        # Generate response
+        response = await research_agent._generate_response("user123")
+        
+        # Verify response includes knowledge
+        assert "NIF" in response
+        assert "Commonwealth Fusion Systems" in response
+        
+        # Verify knowledge service was called
+        knowledge_service.search.assert_called_once_with(
+            query="latest developments fusion energy",
+            max_results=3
+        )
+```
+
+#### Cross-Provider Integration Testing
+
+```python
+# tests/integration/test_cross_provider.py
+import pytest
+import os
+from unittest.mock import patch, AsyncMock
+import json
+
+from app.services.provider_service import ProviderService, Provider
+from app.services.ollama_service import OllamaService
+
+class TestCrossProviderIntegration:
+    @pytest.fixture
+    async def real_services(self):
+        """Set up real services for integration testing."""
+        # Skip tests if API keys aren't available in the environment
+        if not os.environ.get("OPENAI_API_KEY"):
+            pytest.skip("OPENAI_API_KEY environment variable not set")
+            
+        # Initialize real services
+        ollama_service = OllamaService()
+        provider_service = ProviderService()
+        
+        # Initialize the services
+        try:
+            await ollama_service.initialize()
+            await provider_service.initialize()
+        except Exception as e:
+            pytest.skip(f"Failed to initialize services: {str(e)}")
+        
+        yield {
+            "ollama_service": ollama_service,
+            "provider_service": provider_service
+        }
+        
+        # Cleanup
+        await ollama_service.cleanup()
+        await provider_service.cleanup()
+    
+    @pytest.mark.asyncio
+    async def test_provider_selection_complex_query(self, real_services):
+        """Test that complex queries route to OpenAI."""
+        provider_service = real_services["provider_service"]
+        
+        # Adjust complexity threshold to ensure predictable routing
+        provider_service.model_selection_criteria.complexity_threshold = 0.5
+        
+        # Complex query that should route to OpenAI
+        complex_messages = [
+            {"role": "user", "content": "Provide a detailed analysis of the philosophical implications of artificial general intelligence, considering perspectives from epistemology, ethics, and metaphysics."}
+        ]
+        
+        # Select provider
+        provider, model = await provider_service._select_provider_and_model(
+            messages=complex_messages,
+            provider="auto"
+        )
+        
+        # Verify routing decision
+        assert provider == Provider.OPENAI
+    
+    @pytest.mark.asyncio
+    async def test_provider_selection_simple_query(self, real_services):
+        """Test that simple queries route to Ollama."""
+        provider_service = real_services["provider_service"]
+        
+        # Adjust complexity threshold to ensure predictable routing
+        provider_service.model_selection_criteria.complexity_threshold = 0.5
+        
+        # Simple query that should route to Ollama
+        simple_messages = [
+            {"role": "user", "content": "What's the weather like today?"}
+        ]
+        
+        # Select provider
+        provider, model = await provider_service._select_provider_and_model(
+            messages=simple_messages,
+            provider="auto"
+        )
+        
+        # Verify routing decision
+        assert provider == Provider.OLLAMA
+    
+    @pytest.mark.asyncio
+    async def test_fallback_mechanism_real(self, real_services):
+        """Test the fallback mechanism with real services."""
+        provider_service = real_services["provider_service"]
+        
+        # Intentionally cause OpenAI to fail by using an invalid model
+        messages = [
+            {"role": "user", "content": "Simple test message"}
+        ]
+        
+        try:
+            # This should fail with OpenAI but succeed with Ollama fallback
+            response = await provider_service.generate_completion(
+                messages=messages,
+                model="openai:non-existent-model",  # Invalid model
+                provider="auto"  # Enable auto-fallback
+            )
+            
+            # If we get here, fallback worked
+            assert response["provider"] == "ollama"
+            assert "content" in response["message"]
+        except Exception as e:
+            pytest.fail(f"Fallback mechanism failed: {str(e)}")
+    
+    @pytest.mark.asyncio
+    async def test_ollama_response_format(self, real_services):
+        """Test that Ollama responses are properly formatted to match OpenAI's structure."""
+        ollama_service = real_services["ollama_service"]
+        
+        # Generate a basic response
+        messages = [
+            {"role": "user", "content": "What is 2+2?"}
+        ]
+        
+        response = await ollama_service.generate_completion(
+            messages=messages,
+            model="llama2"  # Specify a model that should exist
+        )
+        
+        # Verify response structure matches expected format
+        assert "id" in response
+        assert "object" in response
+        assert "model" in response
+        assert "usage" in response
+        assert "message" in response
+        assert "content" in response["message"]
+        assert response["provider"] == "ollama"
+```
+
+### 3. Performance Testing Framework
+
+#### Response Latency Benchmarking
+
+```python
+# tests/performance/test_latency.py
+import pytest
+import time
+import asyncio
+import statistics
+from typing import List, Dict, Any
+import pandas as pd
+import matplotlib.pyplot as plt
+import os
+
+from app.services.provider_service import ProviderService, Provider
+from app.services.ollama_service import OllamaService
+
+# Skip tests if it's CI environment
+SKIP_PERFORMANCE_TESTS = os.environ.get("CI") == "true"
+
+@pytest.mark.skipif(SKIP_PERFORMANCE_TESTS, reason="Performance tests skipped in CI environment")
+class TestResponseLatency:
+    @pytest.fixture
+    async def services(self):
+        """Set up services for latency testing."""
+        if not os.environ.get("OPENAI_API_KEY"):
+            pytest.skip("OPENAI_API_KEY environment variable not set")
+            
+        # Initialize services
+        ollama_service = OllamaService()
+        provider_service = ProviderService()
+        
+        try:
+            await ollama_service.initialize()
+            await provider_service.initialize()
+        except Exception as e:
+            pytest.skip(f"Failed to initialize services: {str(e)}")
+        
+        yield {
+            "ollama_service": ollama_service,
+            "provider_service": provider_service
+        }
+        
+        # Cleanup
+        await ollama_service.cleanup()
+        await provider_service.cleanup()
+    
+    async def measure_latency(self, provider_service, provider, model, messages):
+        """Measure response latency for a given provider and model."""
+        start_time = time.time()
+        
+        if provider == "openai":
+            await provider_service._generate_openai_completion(
+                messages=messages,
+                model=model
+            )
+        else:  # ollama
+            await provider_service._generate_ollama_completion(
+                messages=messages,
+                model=model
+            )
+            
+        end_time = time.time()
+        return end_time - start_time
+    
+    @pytest.mark.asyncio
+    async def test_latency_comparison(self, services):
+        """Compare latency between OpenAI and Ollama for different query types."""
+        provider_service = services["provider_service"]
+        
+        # Test messages of different complexity
+        test_messages = [
+            {
+                "name": "simple_factual",
+                "messages": [{"role": "user", "content": "What is the capital of France?"}]
+            },
+            {
+                "name": "medium_explanation",
+                "messages": [{"role": "user", "content": "Explain how photosynthesis works in plants."}]
+            },
+            {
+                "name": "complex_analysis",
+                "messages": [{"role": "user", "content": "Analyze the economic factors that contributed to the 2008 financial crisis and their long-term impacts."}]
+            }
+        ]
+        
+        # Models to test
+        models = {
+            "openai": ["gpt-3.5-turbo", "gpt-4"],
+            "ollama": ["llama2", "mistral"]
+        }
+        
+        # Number of repetitions for each test
+        repetitions = 3
+        
+        # Collect results
+        results = []
+        
+        for message_type in test_messages:
+            for provider in models:
+                for model in models[provider]:
+                    for i in range(repetitions):
+                        try:
+                            latency = await self.measure_latency(
+                                provider_service, 
+                                provider, 
+                                model, 
+                                message_type["messages"]
+                            )
+                            
+                            results.append({
+                                "provider": provider,
+                                "model": model,
+                                "message_type": message_type["name"],
+                                "repetition": i,
+                                "latency": latency
+                            })
+                            
+                            # Add a small delay to avoid rate limits
+                            await asyncio.sleep(1)
+                        except Exception as e:
+                            print(f"Error testing {provider}:{model} - {str(e)}")
+        
+        # Analyze results
+        df = pd.DataFrame(results)
+        
+        # Calculate average latency by provider, model, and message type
+        avg_latency = df.groupby(['provider', 'model', 'message_type'])['latency'].mean().reset_index()
+        
+        # Generate summary statistics
+        summary = avg_latency.pivot_table(
+            index=['provider', 'model'],
+            columns='message_type',
+            values='latency'
+        ).reset_index()
+        
+        # Print summary
+        print("\nLatency Benchmark Results (seconds):")
+        print(summary)
+        
+        # Create visualization
+        plt.figure(figsize=(12, 8))
+        
+        for message_type in test_messages:
+            subset = avg_latency[avg_latency['message_type'] == message_type['name']]
+            x = range(len(subset))
+            labels = [f"{row['provider']}\n{row['model']}" for _, row in subset.iterrows()]
+            
+            plt.subplot(1, len(test_messages), test_messages.index(message_type) + 1)
+            plt.bar(x, subset['latency'])
+            plt.xticks(x, labels, rotation=45)
+            plt.title(f"Latency: {message_type['name']}")
+            plt.ylabel("Seconds")
+        
+        plt.tight_layout()
+        plt.savefig('latency_benchmark.png')
+        
+        # Assert something meaningful
+        assert len(results) > 0, "No benchmark results collected"
+```
+
+#### Memory Usage Monitoring
+
+```python
+# tests/performance/test_memory_usage.py
+import pytest
+import os
+import asyncio
+import psutil
+import time
+import resource
+import matplotlib.pyplot as plt
+import pandas as pd
+from typing import List, Dict, Any
+
+from app.services.provider_service import ProviderService, Provider
+from app.services.ollama_service import OllamaService
+
+# Skip tests if it's CI environment
+SKIP_PERFORMANCE_TESTS = os.environ.get("CI") == "true"
+
+@pytest.mark.skipif(SKIP_PERFORMANCE_TESTS, reason="Performance tests skipped in CI environment")
+class TestMemoryUsage:
+    @pytest.fixture
+    async def services(self):
+        """Set up services for memory testing."""
+        if not os.environ.get("OPENAI_API_KEY"):
+            pytest.skip("OPENAI_API_KEY environment variable not set")
+            
+        # Initialize services
+        ollama_service = OllamaService()
+        provider_service = ProviderService()
+        
+        try:
+            await ollama_service.initialize()
+            await provider_service.initialize()
+        except Exception as e:
+            pytest.skip(f"Failed to initialize services: {str(e)}")
+        
+        yield {
+            "ollama_service": ollama_service,
+            "provider_service": provider_service
+        }
+        
+        # Cleanup
+        await ollama_service.cleanup()
+        await provider_service.cleanup()
+    
+    def get_memory_usage(self):
+        """Get current memory usage of the process."""
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        return memory_info.rss / (1024 * 1024)  # Convert to MB
+    
+    async def monitor_memory_during_request(self, provider_service, provider, model, messages):
+        """Monitor memory usage during a request."""
+        memory_samples = []
+        
+        # Start memory monitoring thread
+        monitoring = True
+        
+        async def memory_monitor():
+            start_time = time.time()
+            while monitoring:
+                memory_samples.append({
+                    "time": time.time() - start_time,
+                    "memory_mb": self.get_memory_usage()
+                })
+                await asyncio.sleep(0.1)  # Sample every 100ms
+        
+        # Start monitoring
+        monitor_task = asyncio.create_task(memory_monitor())
+        
+        # Make the request
+        start_time = time.time()
+        try:
+            if provider == "openai":
+                await provider_service._generate_openai_completion(
+                    messages=messages,
+                    model=model
+                )
+            else:  # ollama
+                await provider_service._generate_ollama_completion(
+                    messages=messages,
+                    model=model
+                )
+        finally:
+            end_time = time.time()
+            
+            # Stop monitoring
+            monitoring = False
+            await monitor_task
+        
+        return {
+            "samples": memory_samples,
+            "duration": end_time - start_time,
+            "peak_memory": max(sample["memory_mb"] for sample in memory_samples) if memory_samples else 0,
+            "mean_memory": sum(sample["memory_mb"] for sample in memory_samples) / len(memory_samples) if memory_samples else 0
+        }
+    
+    @pytest.mark.asyncio
+    async def test_memory_usage_comparison(self, services):
+        """Compare memory usage between OpenAI and Ollama."""
+        provider_service = services["provider_service"]
+        
+        # Test messages
+        test_message = {"role": "user", "content": "Write a detailed essay about climate change and its global impact."}
+        
+        # Models to test
+        models = {
+            "openai": ["gpt-3.5-turbo"],
+            "ollama": ["llama2"]
+        }
+        
+        # Collect results
+        results = []
+        memory_data = {}
+        
+        for provider in models:
+            for model in models[provider]:
+                # Collect initial memory
+                initial_memory = self.get_memory_usage()
+                
+                # Monitor during request
+                memory_result = await self.monitor_memory_during_request(
+                    provider_service,
+                    provider,
+                    model,
+                    [test_message]
+                )
+                
+                # Store results
+                key = f"{provider}:{model}"
+                memory_data[key] = memory_result["samples"]
+                
+                results.append({
+                    "provider": provider,
+                    "model": model,
+                    "initial_memory_mb": initial_memory,
+                    "peak_memory_mb": memory_result["peak_memory"],
+                    "mean_memory_mb": memory_result["mean_memory"],
+                    "memory_increase_mb": memory_result["peak_memory"] - initial_memory,
+                    "duration_seconds": memory_result["duration"]
+                })
+                
+                # Wait a bit to let memory stabilize
+                await asyncio.sleep(2)
+        
+        # Analyze results
+        df = pd.DataFrame(results)
+        
+        # Print summary
+        print("\nMemory Usage Results:")
+        print(df.to_string(index=False))
+        
+        # Create visualization
+        plt.figure(figsize=(15, 10))
+        
+        # Plot memory over time
+        plt.subplot(2, 1, 1)
+        for key, samples in memory_data.items():
+            times = [s["time"] for s in samples]
+            memory = [s["memory_mb"] for s in samples]
+            plt.plot(times, memory, label=key)
+        
+        plt.xlabel("Time (seconds)")
+        plt.ylabel("Memory Usage (MB)")
+        plt.title("Memory Usage Over Time During Request")
+        plt.legend()
+        plt.grid(True)
+        
+        # Plot peak and increase
+        plt.subplot(2, 1, 2)
+        providers = df["provider"].tolist()
+        models = df["model"].tolist()
+        labels = [f"{p}\n{m}" for p, m in zip(providers, models)]
+        x = range(len(labels))
+        
+        plt.bar(x, df["memory_increase_mb"], label="Memory Increase")
+        plt.xticks(x, labels)
+        plt.ylabel("Memory (MB)")
+        plt.title("Memory Increase by Provider/Model")
+        plt.legend()
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.savefig('memory_benchmark.png')
+        
+        # Assert something meaningful
+        assert len(results) > 0, "No memory benchmark results collected"
+```
+
+#### Response Quality Benchmarking
+
+```python
+# tests/performance/test_response_quality.py
+import pytest
+import os
+import asyncio
+import json
+import pandas as pd
+import matplotlib.pyplot as plt
+from typing import List, Dict, Any
+
+from app.services.provider_service import ProviderService, Provider
+from app.services.ollama_service import OllamaService
+
+# Skip tests if it's CI environment
+SKIP_PERFORMANCE_TESTS = os.environ.get("CI") == "true"
+
+@pytest.mark.skipif(SKIP_PERFORMANCE_TESTS, reason="Performance tests skipped in CI environment")
+class TestResponseQuality:
+    @pytest.fixture
+    async def services(self):
+        """Set up services for quality testing."""
+        if not os.environ.get("OPENAI_API_KEY"):
+            pytest.skip("OPENAI_API_KEY environment variable not set")
+            
+        # Initialize services
+        ollama_service = OllamaService()
+        provider_service = ProviderService()
+        
+        try:
+            await ollama_service.initialize()
+            await provider_service.initialize()
+        except Exception as e:
+            pytest.skip(f"Failed to initialize services: {str(e)}")
+        
+        yield {
+            "ollama_service": ollama_service,
+            "provider_service": provider_service
+        }
+        
+        # Cleanup
+        await ollama_service.cleanup()
+        await provider_service.cleanup()
+    
+    async def get_response(self, provider_service, provider, model, messages):
+        """Get a response from a specific provider and model."""
+        if provider == "openai":
+            response = await provider_service._generate_openai_completion(
+                messages=messages,
+                model=model
+            )
+        else:  # ollama
+            response = await provider_service._generate_ollama_completion(
+                messages=messages,
+                model=model
+            )
+            
+        return response["message"]["content"]
+    
+    async def evaluate_response(self, provider_service, response, criteria):
+        """Evaluate a response using GPT-4 as a judge."""
+        evaluation_prompt = [
+            {"role": "system", "content": """
+            You are an expert evaluator of AI responses. Evaluate the given response based on the specified criteria.
+            For each criterion, provide a score from 1-10 and a brief explanation.
+            Format your response as valid JSON with the following structure:
+            {
+                "criteria": {
+                    "accuracy": {"score": X, "explanation": "..."},
+                    "completeness": {"score": X, "explanation": "..."},
+                    "coherence": {"score": X, "explanation": "..."},
+                    "relevance": {"score": X, "explanation": "..."}
+                },
+                "overall_score": X,
+                "summary": "..."
+            }
+            """},
+            {"role": "user", "content": f"""
+            Evaluate this AI response based on {', '.join(criteria)}:
+            
+            RESPONSE TO EVALUATE:
+            {response}
+            """}
+        ]
+        
+        # Use GPT-4 to evaluate
+        evaluation = await provider_service._generate_openai_completion(
+            messages=evaluation_prompt,
+            model="gpt-4",
+            response_format={"type": "json_object"}
+        )
+        
+        try:
+            return json.loads(evaluation["message"]["content"])
+        except:
+            # Fallback if parsing fails
+            return {
+                "criteria": {c: {"score": 0, "explanation": "Failed to parse"} for c in criteria},
+                "overall_score": 0,
+                "summary": "Failed to parse evaluation"
+            }
+    
+    @pytest.mark.asyncio
+    async def test_response_quality_comparison(self, services):
+        """Compare response quality between OpenAI and Ollama models."""
+        provider_service = services["provider_service"]
+        
+        # Test scenarios
+        test_scenarios = [
+            {
+                "name": "factual_knowledge",
+                "query": "Explain the process of photosynthesis and its importance to life on Earth."
+            },
+            {
+                "name": "reasoning",
+                "query": "A bat and ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost?"
+            },
+            {
+                "name": "creative_writing",
+                "query": "Write a short story about a robot discovering emotions."
+            },
+            {
+                "name": "code_generation",
+                "query": "Write a Python function to check if a string is a palindrome."
+            }
+        ]
+        
+        # Models to test
+        models = {
+            "openai": ["gpt-3.5-turbo"],
+            "ollama": ["llama2", "mistral"]
+        }
+        
+        # Evaluation criteria
+        criteria = ["accuracy", "completeness", "coherence", "relevance"]
+        
+        # Collect results
+        results = []
+        
+        for scenario in test_scenarios:
+            for provider in models:
+                for model in models[provider]:
+                    try:
+                        # Get response
+                        response = await self.get_response(
+                            provider_service,
+                            provider,
+                            model,
+                            [{"role": "user", "content": scenario["query"]}]
+                        )
+                        
+                        # Evaluate response
+                        evaluation = await self.evaluate_response(
+                            provider_service,
+                            response,
+                            criteria
+                        )
+                        
+                        # Store results
+                        results.append({
+                            "scenario": scenario["name"],
+                            "provider": provider,
+                            "model": model,
+                            "overall_score": evaluation["overall_score"],
+                            **{f"{criterion}_score": evaluation["criteria"][criterion]["score"] 
+                              for criterion in criteria}
+                        })
+                        
+                        # Add raw responses for detailed analysis
+                        with open(f"response_{provider}_{model}_{scenario['name']}.txt", "w") as f:
+                            f.write(response)
+                        
+                        # Add a delay to avoid rate limits
+                        await asyncio.sleep(2)
+                    except Exception as e:
+                        print(f"Error evaluating {provider}:{model} on {scenario['name']}: {str(e)}")
+        
+        # Analyze results
+        df = pd.DataFrame(results)
+        
+        # Save results
+        df.to_csv("quality_benchmark_results.csv", index=False)
+        
+        # Print summary
+        print("\nResponse Quality Results:")
+        summary = df.groupby(['provider', 'model']).mean().reset_index()
+        print(summary.to_string(index=False))
+        
+        # Create visualization
+        plt.figure(figsize=(15, 10))
+        
+        # Plot overall scores by scenario
+        plt.subplot(2, 1, 1)
+        for i, scenario in enumerate(test_scenarios):
+            scenario_df = df[df['scenario'] == scenario['name']]
+            providers = scenario_df["provider"].tolist()
+            models = scenario_df["model"].tolist()
+            labels = [f"{p}\n{m}" for p, m in zip(providers, models)]
+            
+            plt.subplot(2, 2, i+1)
+            plt.bar(labels, scenario_df["overall_score"])
+            plt.title(f"Quality Scores: {scenario['name']}")
+            plt.ylabel("Score (1-10)")
+            plt.ylim(0, 10)
+            plt.xticks(rotation=45)
+        
+        plt.tight_layout()
+        plt.savefig('quality_benchmark.png')
+        
+        # Assert something meaningful
+        assert len(results) > 0, "No quality benchmark results collected"
+```
+
+### 4. Reliability Testing Framework
+
+#### Error Handling and Fallback Testing
+
+```python
+# tests/reliability/test_error_handling.py
+import pytest
+import asyncio
+from unittest.mock import AsyncMock, patch, MagicMock
+import aiohttp
+
+from app.services.provider_service import ProviderService, Provider
+from app.services.ollama_service import OllamaService
+
+class TestErrorHandling:
+    @pytest.fixture
+    def provider_service(self):
+        """Create a provider service with mocked dependencies for testing."""
+        service = ProviderService()
+        service.openai_client = AsyncMock()
+        service.ollama_service = AsyncMock(spec=OllamaService)
+        return service
+    
+    @pytest.mark.asyncio
+    async def test_openai_connection_error(self, provider_service):
+        """Test handling of OpenAI connection errors."""
+        # Mock OpenAI to raise a connection error
+        provider_service._generate_openai_completion = AsyncMock(
+            side_effect=aiohttp.ClientConnectionError("Connection refused")
+        )
+        
+        # Mock Ollama to succeed
+        provider_service._generate_ollama_completion = AsyncMock(return_value={
+            "id": "ollama-fallback",
+            "provider": "ollama",
+            "message": {"content": "Fallback response"}
+        })
+        
+        # Test with auto routing
+        response = await provider_service.generate_completion(
+            messages=[{"role": "user", "content": "Test message"}],
+            provider="auto"
+        )
+        
+        # Verify fallback worked
+        assert response["provider"] == "ollama"
+        assert response["message"]["content"] == "Fallback response"
+        provider_service._generate_openai_completion.assert_called_once()
+        provider_service._generate_ollama_completion.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_ollama_connection_error(self, provider_service):
+        """Test handling of Ollama connection errors."""
+        # Mock the auto routing to select Ollama first
+        provider_service._auto_route = AsyncMock(return_value=Provider.OLLAMA)
+        
+        # Mock Ollama to fail
+        provider_service._generate_ollama_completion = AsyncMock(
+            side_effect=aiohttp.ClientConnectionError("Connection refused")
+        )
+        
+        # Mock OpenAI to succeed
+        provider_service._generate_openai_completion = AsyncMock(return_value={
+            "id": "openai-fallback",
+            "provider": "openai",
+            "message": {"content": "Fallback response"}
+        })
+        
+        # Test with auto routing
+        response = await provider_service.generate_completion(
+            messages=[{"role": "user", "content": "Test message"}],
+            provider="auto"
+        )
+        
+        # Verify fallback worked
+        assert response["provider"] == "openai"
+        assert response["message"]["content"] == "Fallback response"
+        provider_service._generate_ollama_completion.assert_called_once()
+        provider_service._generate_openai_completion.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_rate_limit_handling(self, provider_service):
+        """Test handling of rate limit errors."""
+        # Mock OpenAI to raise a rate limit error
+        rate_limit_error = MagicMock()
+        rate_limit_error.status_code = 429
+        rate_limit_error.json.return_value = {"error": {"message": "Rate limit exceeded"}}
+        
+        provider_service._generate_openai_completion = AsyncMock(
+            side_effect=openai.RateLimitError("Rate limit exceeded", response=rate_limit_error)
+        )
+        
+        # Mock Ollama to succeed
+        provider_service._generate_ollama_completion = AsyncMock(return_value={
+            "id": "ollama-fallback",
+            "provider": "ollama",
+            "message": {"content": "Fallback response"}
+        })
+        
+        # Test with auto routing
+        response = await provider_service.generate_completion(
+            messages=[{"role": "user", "content": "Test message"}],
+            provider="auto"
+        )
+        
+        # Verify fallback worked
+        assert response["provider"] == "ollama"
+        assert response["message"]["content"] == "Fallback response"
+    
+    @pytest.mark.asyncio
+    async def test_timeout_handling(self, provider_service):
+        """Test handling of timeout errors."""
+        # Mock OpenAI to raise a timeout error
+        provider_service._generate_openai_completion = AsyncMock(
+            side_effect=asyncio.TimeoutError("Request timed out")
+        )
+        
+        # Mock Ollama to succeed
+        provider_service._generate_ollama_completion = AsyncMock(return_value={
+            "id": "ollama-fallback",
+            "provider": "ollama",
+            "message": {"content": "Fallback response"}
+        })
+        
+        # Test with auto routing
+        response = await provider_service.generate_completion(
+            messages=[{"role": "user", "content": "Test message"}],
+            provider="auto"
+        )
+        
+        # Verify fallback worked
+        assert response["provider"] == "ollama"
+        assert response["message"]["content"] == "Fallback response"
+    
+    @pytest.mark.asyncio
+    async def test_all_providers_fail(self, provider_service):
+        """Test case when all providers fail."""
+        # Mock both providers to fail
+        provider_service._generate_openai_completion = AsyncMock(
+            side_effect=Exception("OpenAI failed")
+        )
+        
+        provider_service._generate_ollama_completion = AsyncMock(
+            side_effect=Exception("Ollama failed")
+        )
+        
+        # Test with auto routing - should raise an exception
+        with pytest.raises(Exception) as excinfo:
+            await provider_service.generate_completion(
+                messages=[{"role": "user", "content": "Test message"}],
+                provider="auto"
+            )
+        
+        # Verify the original exception is re-raised
+        assert "OpenAI failed" in str(excinfo.value)
+        provider_service._generate_openai_completion.assert_called_once()
+        provider_service._generate_ollama_completion.assert_called_once()
+```
+
+#### Load Testing
+
+```python
+# tests/reliability/test_load.py
+import pytest
+import asyncio
+import time
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+from aiohttp import ClientSession, TCPConnector
+
+from app.services.provider_service import ProviderService, Provider
+
+# Skip tests if it's CI environment
+SKIP_LOAD_TESTS = os.environ.get("CI") == "true"
+
+@pytest.mark.skipif(SKIP_LOAD_TESTS, reason="Load tests skipped in CI environment")
+class TestLoadHandling:
+    @pytest.fixture
+    async def provider_service(self):
+        """Set up provider service for load testing."""
+        if not os.environ.get("OPENAI_API_KEY"):
+            pytest.skip("OPENAI_API_KEY environment variable not set")
+            
+        # Initialize service
+        service = ProviderService()
+        
+        try:
+            await service.initialize()
+        except Exception as e:
+            pytest.skip(f"Failed to initialize service: {str(e)}")
+        
+        yield service
+        
+        # Cleanup
+        await service.cleanup()
+    
+    async def send_request(self, provider_service, provider, model, message, request_id):
+        """Send a single request and record performance."""
+        start_time = time.time()
+        success = False
+        error = None
+        
+        try:
+            response = await provider_service.generate_completion(
+                messages=[{"role": "user", "content": message}],
+                provider=provider,
+                model=model
+            )
+            success = True
+        except Exception as e:
+            error = str(e)
+        
+        end_time = time.time()
+        
+        return {
+            "request_id": request_id,
+            "provider": provider,
+            "model": model,
+            "success": success,
+            "error": error,
+            "duration": end_time - start_time
+        }
+    
+    @pytest.mark.asyncio
+    async def test_concurrent_requests(self, provider_service):
+        """Test handling of multiple concurrent requests."""
+        # Test configurations
+        providers = ["openai", "ollama", "auto"]
+        request_count = 10  # 10 requests per provider
+        
+        # Test message (simple to avoid rate limits)
+        message = "What is 2+2?"
+        
+        # Create tasks for all requests
+        tasks = []
+        request_id = 0
+        
+        for provider in providers:
+            for _ in range(request_count):
+                # Determine model based on provider
+                if provider == "openai":
+                    model = "gpt-3.5-turbo"
+                elif provider == "ollama":
+                    model = "llama2"
+                else:
+                    model = None  # Auto select
+                
+                tasks.append(self.send_request(
+                    provider_service,
+                    provider,
+                    model,
+                    message,
+                    request_id
+                ))
+                request_id += 1
+                
+                # Small delay to avoid immediate rate limiting
+                await asyncio.sleep(0.1)
+        
+        # Run requests concurrently with a reasonable concurrency limit
+        concurrency_limit = 5
+        results = []
+        
+        for i in range(0, len(tasks), concurrency_limit):
+            batch = tasks[i:i+concurrency_limit]
+            batch_results = await asyncio.gather(*batch)
+            results.extend(batch_results)
+            
+            # Delay between batches to avoid rate limits
+            await asyncio.sleep(2)
+        
+        # Analyze results
+        df = pd.DataFrame(results)
+        
+        # Print summary
+        print("\nConcurrent Request Test Results:")
+        success_rate = df.groupby('provider')['success'].mean() * 100
+        mean_duration = df.groupby('provider')['duration'].mean()
+        
+        summary = pd.DataFrame({
+            'success_rate': success_rate,
+            'mean_duration': mean_duration
+        }).reset_index()
+        
+        print(summary.to_string(index=False))
+        
+        # Create visualization
+        plt.figure(figsize=(12, 10))
+        
+        # Plot success rate
+        plt.subplot(2, 1, 1)
+        plt.bar(summary['provider'], summary['success_rate'])
+        plt.title('Success Rate by Provider')
+        plt.ylabel('Success Rate (%)')
+        plt.ylim(0, 100)
+        
+        # Plot response times
+        plt.subplot(2, 1, 2)
+        for provider in providers:
+            provider_df = df[df['provider'] == provider]
+            plt.plot(provider_df['request_id'], provider_df['duration'], marker='o', label=provider)
+        
+        plt.title('Response Time by Request')
+        plt.xlabel('Request ID')
+        plt.ylabel('Duration (seconds)')
+        plt.legend()
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.savefig('load_test_results.png')
+        
+        # Assert reasonable success rate
+        for provider in providers:
+            provider_success = df[df['provider'] == provider]['success'].mean() * 100
+            assert provider_success >= 70, f"Success rate for {provider} is below 70%"
+```
+
+#### Stability Testing for Extended Sessions
+
+```python
+# tests/reliability/test_stability.py
+import pytest
+import asyncio
+import time
+import os
+import random
+import pandas as pd
+import matplotlib.pyplot as plt
+from typing import List, Dict, Any
+
+from app.services.provider_service import ProviderService, Provider
+from app.agents.base_agent import BaseAgent, AgentState
+from app.agents.research_agent import ResearchAgent
+from app.models.message import Message, MessageRole
+
+# Skip tests if it's CI environment
+SKIP_STABILITY_TESTS = os.environ.get("CI") == "true"
+
+@pytest.mark.skipif(SKIP_STABILITY_TESTS, reason="Stability tests skipped in CI environment")
+class TestSystemStability:
+    @pytest.fixture
+    async def setup(self):
+        """Set up test environment with services and agents."""
+        if not os.environ.get("OPENAI_API_KEY"):
+            pytest.skip("OPENAI_API_KEY environment variable not set")
+            
+        # Initialize service
+        provider_service = ProviderService()
+        
+        try:
+            await provider_service.initialize()
+        except Exception as e:
+            pytest.skip(f"Failed to initialize service: {str(e)}")
+        
+        # Create a test agent
+        agent = ResearchAgent(
+            provider_service=provider_service,
+            knowledge_service=None,  # Mock would be better but we're testing stability
+            system_prompt="You are a helpful research assistant."
+        )
+        
+        yield {
+            "provider_service": provider_service,
+            "agent": agent
+        }
+        
+        # Cleanup
+        await provider_service.cleanup()
+    
+    async def run_conversation_turn(self, agent, message, turn_number):
+        """Run a single conversation turn and record metrics."""
+        start_time = time.time()
+        success = False
+        error = None
+        memory_before = self.get_memory_usage()
+        
+        try:
+            response = await agent.process_message(message, f"test_user_{turn_number}")
+            success = True
+        except Exception as e:
+            error = str(e)
+            response = None
+        
+        end_time = time.time()
+        memory_after = self.get_memory_usage()
+        
+        return {
+            "turn": turn_number,
+            "success": success,
+            "error": error,
+            "duration": end_time - start_time,
+            "memory_before": memory_before,
+            "memory_after": memory_after,
+            "memory_increase": memory_after - memory_before,
+            "history_length": len(agent.state.conversation_history),
+            "response_length": len(response) if response else 0
+        }
+    
+    def get_memory_usage(self):
+        """Get current memory usage in MB."""
+        import psutil
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        return memory_info.rss / (1024 * 1024)  # Convert to MB
+    
+    @pytest.mark.asyncio
+    async def test_extended_conversation(self, setup):
+        """Test system stability over an extended conversation."""
+        agent = setup["agent"]
+        
+        # List of test questions for the conversation
+        questions = [
+            "What is machine learning?",
+            "Can you explain neural networks?",
+            "What is the difference between supervised and unsupervised learning?",
+            "How does reinforcement learning work?",
+            "What are some applications of deep learning?",
+            "Explain the concept of overfitting.",
+            "What is transfer learning?",
+            "How does backpropagation work?",
+            "What are convolutional neural networks?",
+            "Explain the transformer architecture.",
+            "What is BERT and how does it work?",
+            "What are GANs used for?",
+            "Explain the concept of attention in neural networks.",
+            "What is the difference between RNNs and LSTMs?",
+            "How do recommendation systems work?"
+        ]
+        
+        # Run an extended conversation
+        results = []
+        turn_limit = min(len(questions), 15)  # Limit to 15 turns for test duration
+        
+        for turn in range(turn_limit):
+            # For later turns, occasionally refer to previous information
+            if turn > 3 and random.random() < 0.3:
+                message = f"Can you explain more about what you mentioned earlier regarding {random.choice(questions[:turn]).lower().replace('?', '')}"
+            else:
+                message = questions[turn]
+                
+            result = await self.run_conversation_turn(agent, message, turn)
+            results.append(result)
+            
+            # Print progress
+            status = "✓" if result["success"] else "✗"
+            print(f"Turn {turn+1}/{turn_limit} {status} - Time: {result['duration']:.2f}s")
+            
+            # Delay between turns
+            await asyncio.sleep(2)
+        
+        # Analyze results
+        df = pd.DataFrame(results)
+        
+        # Print summary statistics
+        print("\nExtended Conversation Test Results:")
+        print(f"Success rate: {df['success'].mean()*100:.1f}%")
+        print(f"Average response time: {df['duration'].mean():.2f}s")
+        print(f"Final conversation history length: {df['history_length'].iloc[-1]}")
+        print(f"Memory usage increase: {df['memory_after'].iloc[-1] - df['memory_before'].iloc[0]:.2f} MB")
+        
+        # Create visualization
+        plt.figure(figsize=(15, 12))
+        
+        # Plot response times
+        plt.subplot(3, 1, 1)
+        plt.plot(df['turn'], df['duration'], marker='o')
+        plt.title('Response Time by Conversation Turn')
+        plt.xlabel('Turn')
+        plt.ylabel('Duration (seconds)')
+        plt.grid(True)
+        
+        # Plot memory usage
+        plt.subplot(3, 1, 2)
+        plt.plot(df['turn'], df['memory_after'], marker='o')
+        plt.title('Memory Usage Over Conversation')
+        plt.xlabel('Turn')
+        plt.ylabel('Memory (MB)')
+        plt.grid(True)
+        
+        # Plot history length and response length
+        plt.subplot(3, 1, 3)
+        plt.plot(df['turn'], df['history_length'], marker='o', label='History Length')
+        plt.plot(df['turn'], df['response_length'], marker='x', label='Response Length')
+        plt.title('Conversation Metrics')
+        plt.xlabel('Turn')
+        plt.ylabel('Length (chars/items)')
+        plt.legend()
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.savefig('stability_test_results.png')
+        
+        # Assert reasonable success rate
+        assert df['success'].mean() >= 0.8, "Success rate below 80%"
+        
+        # Check for memory leaks (large, consistent growth would be concerning)
+        memory_growth_rate = (df['memory_after'].iloc[-1] - df['memory_before'].iloc[0]) / turn_limit
+        assert memory_growth_rate < 50, f"Excessive memory growth rate: {memory_growth_rate:.2f} MB/turn"
+```
+
+## Automation Framework
+
+### Test Orchestration Script
+
+```python
+# scripts/run_tests.py
+#!/usr/bin/env python
+import argparse
+import os
+import sys
+import subprocess
+import time
+from datetime import datetime
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Run test suite for OpenAI-Ollama integration')
+    parser.add_argument('--unit', action='store_true', help='Run unit tests')
+    parser.add_argument('--integration', action='store_true', help='Run integration tests')
+    parser.add_argument('--performance', action='store_true', help='Run performance tests')
+    parser.add_argument('--reliability', action='store_true', help='Run reliability tests')
+    parser.add_argument('--all', action='store_true', help='Run all tests')
+    parser.add_argument('--html', action='store_true', help='Generate HTML report')
+    parser.add_argument('--output-dir', default='test_results', help='Directory for test results')
+    
+    args = parser.parse_args()
+    
+    # If no specific test type is selected, run all
+    if not (args.unit or args.integration or args.performance or args.reliability or args.all):
+        args.all = True
+        
+    return args
+
+def run_test_suite(test_type, output_dir, html=False):
+    """Run a specific test suite and return success status."""
+    print(f"\n{'='*80}\nRunning {test_type} tests\n{'='*80}")
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_file = f"{output_dir}/{test_type}_report_{timestamp}"
+    
+    # Create command with appropriate flags
+    cmd = ["pytest", f"tests/{test_type}", "-v"]
+    
+    if html:
+        cmd.extend(["--html", f"{report_file}.html", "--self-contained-html"])
+    
+    # Add JUnit XML report for CI integration
+    cmd.extend(["--junitxml", f"{report_file}.xml"])
+    
+    # Run the tests
+    start_time = time.time()
+    result = subprocess.run(cmd)
+    duration = time.time() - start_time
+    
+    # Print summary
+    status = "PASSED" if result.returncode == 0 else "FAILED"
+    print(f"\n{test_type} tests {status} in {duration:.2f} seconds")
+    
+    if html:
+        print(f"HTML report saved to {report_file}.html")
+    
+    print(f"XML report saved to {report_file}.xml")
+    
+    return result.returncode == 0
+
+def main():
+    args = parse_args()
+    
+    # Create output directory if it doesn't exist
+    os.makedirs(args.output_dir, exist_ok=True)
+    
+    # Track overall success
+    all_passed = True
+    
+    # Run selected test suites
+    if args.all or args.unit:
+        unit_passed = run_test_suite("unit", args.output_dir, args.html)
+        all_passed = all_passed and unit_passed
+    
+    if args.all or args.integration:
+        integration_passed = run_test_suite("integration", args.output_dir, args.html)
+        all_passed = all_passed and integration_passed
+    
+    if args.all or args.performance:
+        performance_passed = run_test_suite("performance", args.output_dir, args.html)
+        # Performance tests might be informational, so don't fail the build
+    
+    if args.all or args.reliability:
+        reliability_passed = run_test_suite("reliability", args.output_dir, args.html)
+        all_passed = all_passed and reliability_passed
+    
+    # Print overall summary
+    print(f"\n{'='*80}")
+    print(f"Test Suite {'PASSED' if all_passed else 'FAILED'}")
+    print(f"{'='*80}")
+    
+    # Return appropriate exit code
+    return 0 if all_passed else 1
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+### CI/CD Configuration
+
+```yaml
+# .github/workflows/test.yml
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test suite to run (unit, integration, all)'
+        required: true
+        default: 'unit'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      ollama:
+        image: ollama/ollama:latest
+        ports:
+          - 11434:11434
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Pull Ollama models
+      run: |
+        # Wait for Ollama service to be ready
+        timeout 60 bash -c 'until curl -s -f http://localhost:11434/api/tags > /dev/null; do sleep 1; done'
+        # Pull basic model for testing
+        curl -X POST http://localhost:11434/api/pull -d '{"name":"llama2:7b-chat-q4_0"}'
+      
+    - name: Run unit tests
+      if: ${{ github.event.inputs.test_type == 'unit' || github.event.inputs.test_type == 'all' || github.event.inputs.test_type == '' }}
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        OLLAMA_HOST: http://localhost:11434
+      run: pytest tests/unit -v --junitxml=unit-test-results.xml
+    
+    - name: Run integration tests
+      if: ${{ github.event.inputs.test_type == 'integration' || github.event.inputs.test_type == 'all' }}
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        OLLAMA_HOST: http://localhost:11434
+      run: pytest tests/integration -v --junitxml=integration-test-results.xml
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: '*-test-results.xml'
+        
+    - name: Publish Test Report
+      uses: mikepenz/action-junit-report@v3
+      if: always()
+      with:
+        report_paths: '*-test-results.xml'
+        fail_on_failure: true
+```
+
+## Comparative Benchmark Framework
+
+### Response Quality Evaluation Matrix
+
+```python
+# tests/benchmarks/quality_matrix.py
+import pytest
+import asyncio
+import json
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from typing import List, Dict, Any
+
+from app.services.provider_service import ProviderService, Provider
+from app.services.ollama_service import OllamaService
+
+# Test questions across multiple domains
+BENCHMARK_QUESTIONS = {
+    "factual_knowledge": [
+        "What are the main causes of climate change?",
+        "Explain how vaccines work in the human body.",
+        "What were the key causes of World War I?",
+        "Describe the process of photosynthesis.",
+        "What is the difference between DNA and RNA?"
+    ],
+    "reasoning": [
+        "If it takes 5 machines 5 minutes to make 5 widgets, how long would it take 100 machines to make 100 widgets?",
+        "A bat and ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost?",
+        "In a lake, there is a patch of lily pads. Every day, the patch doubles in size. If it takes 48 days for the patch to cover the entire lake, how long would it take for the patch to cover half of the lake?",
+        "If three people can paint three fences in three hours, how many people would be needed to paint six fences in six hours?",
+        "Imagine a rope that goes around the Earth at the equator, lying flat on the ground. If you add 10 meters to the length of this rope and space it evenly above the ground, how high above the ground would the rope be?"
+    ],
+    "creative_writing": [
+        "Write a short story about a robot discovering emotions.",
+        "Create a poem about the changing seasons.",
+        "Write a creative dialogue between the ocean and the moon.",
+        "Describe a world where humans can photosynthesize like plants.",
+        "Create a character sketch of a time-traveling historian."
+    ],
+    "code_generation": [
+        "Write a Python function to check if a string is a palindrome.",
+        "Create a JavaScript function that finds the most frequent element in an array.",
+        "Write a SQL query to find the top 5 customers by purchase amount.",
+        "Implement a binary search algorithm in the language of your choice.",
+        "Write a function to detect a cycle in a linked list."
+    ],
+    "instruction_following": [
+        "List 5 fruits, then number them in the reverse order, then highlight the one that starts with 'a' if any.",
+        "Explain quantum computing in 3 paragraphs, then summarize each paragraph in one sentence, then create a single slogan based on these summaries.",
+        "Create a table comparing 3 car models based on price, fuel efficiency, and safety. Then add a row showing which model is best in each category.",
+        "Write a recipe for chocolate cake, then modify it to be vegan, then list only the ingredients that changed.",
+        "Translate 'Hello, how are you?' to French, Spanish, and German, then identify which language uses the most words."
+    ]
+}
+
+class TestQualityMatrix:
+    @pytest.fixture
+    async def services(self):
+        """Set up services for benchmark testing."""
+        if not os.environ.get("OPENAI_API_KEY"):
+            pytest.skip("OPENAI_API_KEY environment variable not set")
+            
+        # Initialize services
+        ollama_service = OllamaService()
+        provider_service = ProviderService()
+        
+        try:
+            await ollama_service.initialize()
+            await provider_service.initialize()
+        except Exception as e:
+            pytest.skip(f"Failed to initialize services: {str(e)}")
+        
+        yield {
+            "ollama_service": ollama_service,
+            "provider_service": provider_service
+        }
+        
+        # Cleanup
+        await ollama_service.cleanup()
+        await provider_service.cleanup()
+    
+    async def generate_response(self, provider_service, provider, model, question):
+        """Generate a response from a specific provider and model."""
+        try:
+            if provider == "openai":
+                response = await provider_service._generate_openai_completion(
+                    messages=[{"role": "user", "content": question}],
+                    model=model,
+                    temperature=0.7
+                )
+            else:  # ollama
+                response = await provider_service._generate_ollama_completion(
+                    messages=[{"role": "user", "content": question}],
+                    model=model,
+                    temperature=0.7
+                )
+                
+            return {
+                "success": True,
+                "content": response["message"]["content"],
+                "metadata": {
+                    "model": model,
+                    "provider": provider
+                }
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "metadata": {
+                    "model": model,
+                    "provider": provider
+                }
+            }
+    
+    async def evaluate_response(self, provider_service, question, response, category):
+        """Evaluate a response using GPT-4 as a judge."""
+        # Skip evaluation if response generation failed
+        if not response.get("success", False):
+            return {
+                "scores": {
+                    "correctness": 0,
+                    "completeness": 0,
+                    "coherence": 0,
+                    "conciseness": 0,
+                    "overall": 0
+                },
+                "explanation": f"Failed to generate response: {response.get('error', 'Unknown error')}"
+            }
+        
+        evaluation_criteria = {
+            "factual_knowledge": ["correctness", "completeness", "coherence", "citation"],
+            "reasoning": ["logical_flow", "correctness", "explanation_quality", "step_by_step"],
+            "creative_writing": ["originality", "coherence", "engagement", "language_use"],
+            "code_generation": ["correctness", "efficiency", "readability", "explanation"],
+            "instruction_following": ["accuracy", "completeness", "precision", "structure"]
+        }
+        
+        # Get the appropriate criteria for this category
+        criteria = evaluation_criteria.get(category, ["correctness", "completeness", "coherence", "overall"])
+        
+        evaluation_prompt = [
+            {"role": "system", "content": f"""
+            You are an expert evaluator of AI responses. Evaluate the given response to the question based on the following criteria:
+            
+            {', '.join(criteria)}
+            
+            For each criterion, provide a score from 1-10 and a brief explanation.
+            Also provide an overall score from 1-10.
+            
+            Format your response as valid JSON with the following structure:
+            {{
+                "scores": {{
+                    "{criteria[0]}": X,
+                    "{criteria[1]}": X,
+                    "{criteria[2]}": X,
+                    "{criteria[3]}": X,
+                    "overall": X
+                }},
+                "explanation": "Your overall assessment and suggestions for improvement"
+            }}
+            """},
+            {"role": "user", "content": f"""
+            Question: {question}
+            
+            Response to evaluate:
+            {response["content"]}
+            """}
+        ]
+        
+        # Use GPT-4 to evaluate
+        evaluation = await provider_service._generate_openai_completion(
+            messages=evaluation_prompt,
+            model="gpt-4",
+            response_format={"type": "json_object"}
+        )
+        
+        try:
+            return json.loads(evaluation["message"]["content"])
+        except:
+            # Fallback if parsing fails
+            return {
+                "scores": {criterion: 0 for criterion in criteria + ["overall"]},
+                "explanation": "Failed to parse evaluation"
+            }
+    
+    @pytest.mark.asyncio
+    async def test_quality_matrix(self, services):
+        """Generate a comprehensive quality comparison matrix."""
+        provider_service = services["provider_service"]
+        
+        # Models to test
+        models = {
+            "openai": ["gpt-3.5-turbo", "gpt-4-turbo"],
+            "ollama": ["llama2", "mistral", "codellama"]
+        }
+        
+        # Select a subset of questions for each category to keep test duration reasonable
+        test_questions = {}
+        for category, questions in BENCHMARK_QUESTIONS.items():
+            # Take up to 3 questions per category
+            test_questions[category] = questions[:2]
+        
+        # Collect results
+        all_results = []
+        
+        for category, questions in test_questions.items():
+            for question in questions:
+                for provider in models:
+                    for model in models[provider]:
+                        print(f"Testing {provider}:{model} on {category} question")
+                        
+                        # Generate response
+                        response = await self.generate_response(
+                            provider_service,
+                            provider,
+                            model,
+                            question
+                        )
+                        
+                        # Save raw response
+                        model_safe_name = model.replace(":", "_")
+                        os.makedirs("benchmark_responses", exist_ok=True)
+                        with open(f"benchmark_responses/{provider}_{model_safe_name}_{category}.txt", "a") as f:
+                            f.write(f"\nQuestion: {question}\n\n")
+                            f.write(f"Response: {response.get('content', 'ERROR: ' + response.get('error', 'Unknown error'))}\n")
+                            f.write("-" * 80 + "\n")
+                        
+                        # If successful, evaluate the response
+                        if response.get("success", False):
+                            evaluation = await self.evaluate_response(
+                                provider_service,
+                                question,
+                                response,
+                                category
+                            )
+                            
+                            # Add to results
+                            result = {
+                                "category": category,
+                                "question": question,
+                                "provider": provider,
+                                "model": model,
+                                "success": response["success"]
+                            }
+                            
+                            # Add scores
+                            for criterion, score in evaluation["scores"].items():
+                                result[f"score_{criterion}"] = score
+                                
+                            all_results.append(result)
+                        else:
+                            # Add failed result
+                            all_results.append({
+                                "category": category,
+                                "question": question,
+                                "provider": provider,
+                                "model": model,
+                                "success": False,
+                                "score_overall": 0
+                            })
+                        
+                        # Add a delay to avoid rate limits
+                        await asyncio.sleep(2)
+        
+        # Analyze results
+        df = pd.DataFrame(all_results)
+        
+        # Save full results
+        df.to_csv("benchmark_quality_matrix.csv", index=False)
+        
+        # Create summary by model and category
+        summary = df.groupby(["provider", "model", "category"])["score_overall"].mean().reset_index()
+        pivot_summary = summary.pivot_table(
+            index=["provider", "model"],
+            columns="category",
+            values="score_overall"
+        ).round(2)
+        
+        # Add average across categories
+        pivot_summary["average"] = pivot_summary.mean(axis=1)
+        
+        # Save summary
+        pivot_summary.to_csv("benchmark_quality_summary.csv")
+        
+        # Create visualization
+        plt.figure(figsize=(15, 10))
+        
+        # Heatmap of scores
+        plt.subplot(1, 1, 1)
+        sns.heatmap(pivot_summary, annot=True, cmap="YlGnBu", vmin=1, vmax=10)
+        plt.title("Model Performance by Category (Average Score 1-10)")
+        
+        plt.tight_layout()
+        plt.savefig('benchmark_quality_matrix.png')
+        
+        # Print summary to console
+        print("\nQuality Benchmark Results:")
+        print(pivot_summary.to_string())
+        
+        # Assert something meaningful
+        assert len(all_results) > 0, "No benchmark results collected"
+```
+
+### Latency and Cost Efficiency Analysis
+
+```python
+# tests/benchmarks/efficiency_analysis.py
+import pytest
+import asyncio
+import time
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from typing import List, Dict, Any
+
+from app.services.provider_service import ProviderService, Provider
+from app.services.ollama_service import OllamaService
+
+# Test prompts of different lengths
+BENCHMARK_PROMPTS = {
+    "short": "What is artificial intelligence?",
+    "medium": "Explain the differences between supervised, unsupervised, and reinforcement learning in machine learning.",
+    "long": "Write a comprehensive essay on the ethical implications of artificial intelligence in healthcare, considering patient privacy, diagnostic accuracy, and accessibility issues.",
+    "very_long": """
+    Analyze the historical development of artificial intelligence from its conceptual origins to the present day.
+    Include key milestones, technological breakthroughs, paradigm shifts in approaches, and influential researchers.
+    Also discuss how AI has been portrayed in popular culture and how that has influenced public perception and research funding.
+    Finally, provide a thoughtful discussion on where AI might be headed in the next 20 years and what ethical frameworks
+    should be considered as we continue to advance the technology.
+    """
+}
+
+class TestEfficiencyAnalysis:
+    @pytest.fixture
+    async def services(self):
+        """Set up services for benchmark testing."""
+        if not os.environ.get("OPENAI_API_KEY"):
+            pytest.skip("OPENAI_API_KEY environment variable not set")
+            
+        # Initialize services
+        ollama_service = OllamaService()
+        provider_service = ProviderService()
+        
+        try:
+            await ollama_service.initialize()
+            await provider_service.initialize()
+        except Exception as e:
+            pytest.skip(f"Failed to initialize services: {str(e)}")
+        
+        yield {
+            "ollama_service": ollama_service,
+            "provider_service": provider_service
+        }
+        
+        # Cleanup
+        await ollama_service.cleanup()
+        await provider_service.cleanup()
+    
+    async def measure_response_metrics(self, provider_service, provider, model, prompt, max_tokens=None):
+        """Measure response time, token counts, and other metrics."""
+        start_time = time.time()
+        success = False
+        error = None
+        token_count = {"prompt": 0, "completion": 0, "total": 0}
+        
+        try:
+            if provider == "openai":
+                response = await provider_service._generate_openai_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=model,
+                    max_tokens=max_tokens
+                )
+            else:  # ollama
+                response = await provider_service._generate_ollama_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=model,
+                    max_tokens=max_tokens
+                )
+                
+            success = True
+            
+            # Extract token counts from usage if available
+            if "usage" in response:
+                token_count = {
+                    "prompt": response["usage"].get("prompt_tokens", 0),
+                    "completion": response["usage"].get("completion_tokens", 0),
+                    "total": response["usage"].get("total_tokens", 0)
+                }
+            
+            response_text = response["message"]["content"]
+            
+        except Exception as e:
+            error = str(e)
+            response_text = None
+        
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        # Estimate cost (for OpenAI)
+        cost = 0.0
+        if provider == "openai" and success:
+            if "gpt-4" in model:
+                # GPT-4 pricing (approximate)
+                cost = token_count["prompt"] * 0.00003 + token_count["completion"] * 0.00006
+            else:
+                # GPT-3.5 pricing (approximate)
+                cost = token_count["prompt"] * 0.0000015 + token_count["completion"] * 0.000002
+        
+        return {
+            "success": success,
+            "error": error,
+            "duration": duration,
+            "token_count": token_count,
+            "response_length": len(response_text) if response_text else 0,
+            "cost": cost,
+            "tokens_per_second": token_count["completion"] / duration if success and duration > 0 else 0
+        }
+    
+    @pytest.mark.asyncio
+    async def test_efficiency_benchmark(self, services):
+        """Perform comprehensive efficiency analysis."""
+        provider_service = services["provider_service"]
+        
+        # Models to test
+        models = {
+            "openai": ["gpt-3.5-turbo", "gpt-4"],
+            "ollama": ["llama2", "mistral:7b", "llama2:13b"]
+        }
+        
+        # Number of repetitions for each test
+        repetitions = 2
+        
+        # Results
+        results = []
+        
+        for prompt_length, prompt in BENCHMARK_PROMPTS.items():
+            for provider in models:
+                for model in models[provider]:
+                    print(f"Testing {provider}:{model} with {prompt_length} prompt")
+                    
+                    for rep in range(repetitions):
+                        try:
+                            metrics = await self.measure_response_metrics(
+                                provider_service,
+                                provider,
+                                model,
+                                prompt
+                            )
+                            
+                            results.append({
+                                "provider": provider,
+                                "model": model,
+                                "prompt_length": prompt_length,
+                                "repetition": rep + 1,
+                                **metrics
+                            })
+                            
+                            # Add a delay to avoid rate limits
+                            await asyncio.sleep(2)
+                        except Exception as e:
+                            print(f"Error in benchmark: {str(e)}")
+        
+        # Create DataFrame
+        df = pd.DataFrame(results)
+        
+        # Save raw results
+        df.to_csv("benchmark_efficiency_raw.csv", index=False)
+        
+        # Create summary by model and prompt length
+        latency_summary = df.groupby(["provider", "model", "prompt_length"])["duration"].mean().reset_index()
+        latency_pivot = latency_summary.pivot_table(
+            index=["provider", "model"],
+            columns="prompt_length",
+            values="duration"
+        ).round(2)
+        
+        # Calculate efficiency metrics (tokens per second and cost per 1000 tokens)
+        efficiency_df = df[df["success"]].copy()
+        efficiency_df["cost_per_1k_tokens"] = efficiency_df.apply(
+            lambda row: (row["cost"] * 1000 / row["token_count"]["total"]) 
+            if row["provider"] == "openai" and row["token_count"]["total"] > 0 
+            else 0, 
+            axis=1
+        )
+        
+        efficiency_summary = efficiency_df.groupby(["provider", "model"])[
+            ["tokens_per_second", "cost_per_1k_tokens"]
+        ].mean().round(3)
+        
+        # Save summaries
+        latency_pivot.to_csv("benchmark_latency_summary.csv")
+        efficiency_summary.to_csv("benchmark_efficiency_summary.csv")
+        
+        # Create visualizations
+        plt.figure(figsize=(15, 10))
+        
+        # Latency by prompt length and model
+        plt.subplot(2, 1, 1)
+        ax = plt.gca()
+        latency_pivot.plot(kind='bar', ax=ax)
+        plt.title("Response Time by Prompt Length")
+        plt.ylabel("Time (seconds)")
+        plt.xticks(rotation=45)
+        plt.legend(title="Prompt Length")
+        
+        # Tokens per second by model
+        plt.subplot(2, 2, 3)
+        efficiency_summary["tokens_per_second"].plot(kind='bar')
+        plt.title("Generation Speed (Tokens/Second)")
+        plt.ylabel("Tokens per Second")
+        plt.xticks(rotation=45)
+        
+        # Cost per 1000 tokens (OpenAI only)
+        plt.subplot(2, 2, 4)
+        openai_efficiency = efficiency_summary.loc["openai"]
+        openai_efficiency["cost_per_1k_tokens"].plot(kind='bar')
+        plt.title("Cost per 1000 Tokens (OpenAI)")
+        plt.ylabel("Cost ($)")
+        plt.xticks(rotation=45)
+        
+        plt.tight_layout()
+        plt.savefig('benchmark_efficiency.png')
+        
+        # Print summary to console
+        print("\nLatency by Prompt Length (seconds):")
+        print(latency_pivot.to_string())
+        
+        print("\nEfficiency Metrics:")
+        print(efficiency_summary.to_string())
+        
+        # Comparison analysis
+        if "ollama" in df["provider"].values and "openai" in df["provider"].values:
+            # Calculate average speedup/slowdown ratio
+            openai_avg = df[df["provider"] == "openai"]["duration"].mean()
+            ollama_avg = df[df["provider"] == "ollama"]["duration"].mean()
+            
+            speedup = openai_avg / ollama_avg if ollama_avg > 0 else float('inf')
+            
+            print(f"\nAverage time ratio (OpenAI/Ollama): {speedup:.2f}")
+            if speedup > 1:
+                print(f"Ollama is {speedup:.2f}x faster on average")
+            else:
+                print(f"OpenAI is {1/speedup:.2f}x faster on average")
+        
+        # Assert something meaningful
+        assert len(results) > 0, "No benchmark results collected"
+```
+
+### Tool Usage Comparison
+
+```python
+# tests/benchmarks/tool_usage_comparison.py
+import pytest
+import asyncio
+import json
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from typing import List, Dict, Any
+
+from app.services.provider_service import ProviderService, Provider
+from app.services.ollama_service import OllamaService
+
+# Test tools for benchmarking
+BENCHMARK_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather in a location",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA"
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The temperature unit to use"
+                    }
+                },
+                "required": ["location"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_hotels",
+            "description": "Search for hotels in a specific location",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city to search in"
+                    },
+                    "check_in": {
+                        "type": "string",
+                        "description": "Check-in date in YYYY-MM-DD format"
+                    },
+                    "check_out": {
+                        "type": "string",
+                        "description": "Check-out date in YYYY-MM-DD format"
+                    },
+                    "guests": {
+                        "type": "integer",
+                        "description": "Number of guests"
+                    },
+                    "price_range": {
+                        "type": "string",
+                        "description": "Price range, e.g. '$0-$100'"
+                    }
+                },
+                "required": ["location", "check_in", "check_out"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "calculate_mortgage",
+            "description": "Calculate monthly mortgage payment",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "loan_amount": {
+                        "type": "number",
+                        "description": "The loan amount in dollars"
+                    },
+                    "interest_rate": {
+                        "type": "number",
+                        "description": "Annual interest rate (percentage)"
+                    },
+                    "loan_term": {
+                        "type": "integer",
+                        "description": "Loan term in years"
+                    },
+                    "down_payment": {
+                        "type": "number",
+                        "description": "Down payment amount in dollars"
+                    }
+                },
+                "required": ["loan_amount", "interest_rate", "loan_term"]
+            }
+        }
+    }
+]
+
+# Tool usage queries
+TOOL_QUERIES = [
+    "What's the weather like in Miami right now?",
+    "Find me hotels in New York for next weekend for 2 people.",
+    "Calculate the monthly payment for a $300,000 mortgage with 4.5% interest over 30 years.",
+    "What's the weather in Tokyo and Paris this week?",
+    "I need to calculate mortgage payments for different interest rates: 3%, 4%, and 5% on a $250,000 loan."
+]
+
+class TestToolUsageComparison:
+    @pytest.fixture
+    async def services(self):
+        """Set up services for benchmark testing."""
+        if not os.environ.get("OPENAI_API_KEY"):
+            pytest.skip("OPENAI_API_KEY environment variable not set")
+            
+        # Initialize services
+        ollama_service = OllamaService()
+        provider_service = ProviderService()
+        
+        try:
+            await ollama_service.initialize()
+            await provider_service.initialize()
+        except Exception as e:
+            pytest.skip(f"Failed to initialize services: {str(e)}")
+        
+        yield {
+            "ollama_service": ollama_service,
+            "provider_service": provider_service
+        }
+        
+        # Cleanup
+        await ollama_service.cleanup()
+        await provider_service.cleanup()
+    
+    async def generate_with_tools(self, provider_service, provider, model, query, tools):
+        """Generate a response with tools and measure performance."""
+        start_time = time.time()
+        success = False
+        error = None
+        
+        try:
+            if provider == "openai":
+                response = await provider_service._generate_openai_completion(
+                    messages=[{"role": "user", "content": query}],
+                    model=model,
+                    tools=tools
+                )
+            else:  # ollama
+                response = await provider_service._generate_ollama_completion(
+                    messages=[{"role": "user", "content": query}],
+                    model=model,
+                    tools=tools
+                )
+                
+            success = True
+            tool_calls = response.get("tool_calls", [])
+            message_content = response["message"]["content"]
+            
+            # Determine if tools were used correctly
+            tools_used = len(tool_calls) > 0
+            
+            # For Ollama (which might not have native tool support), check for tool-like patterns
+            if not tools_used and provider == "ollama":
+                # Check if response contains structured tool usage
+                if "<tool>" in message_content:
+                    tools_used = True
+                    
+                # Look for patterns matching function names
+                for tool in tools:
+                    if f"{tool['function']['name']}" in message_content:
+                        tools_used = True
+                        break
+            
+        except Exception as e:
+            error = str(e)
+            message_content = None
+            tools_used = False
+            tool_calls = []
+        
+        end_time = time.time()
+        
+        return {
+            "success": success,
+            "error": error,
+            "duration": end_time - start_time,
+            "message": message_content,
+            "tools_used": tools_used,
+            "tool_call_count": len(tool_calls),
+            "tool_calls": tool_calls
+        }
+    
+    @pytest.mark.asyncio
+    async def test_tool_usage_benchmark(self, services):
+        """Benchmark tool usage across providers and models."""
+        provider_service = services["provider_service"]
+        
+        # Models to test
+        models = {
+            "openai": ["gpt-3.5-turbo", "gpt-4-turbo"],
+            "ollama": ["llama2", "mistral"]
+        }
+        
+        # Results
+        results = []
+        
+        for query in TOOL_QUERIES:
+            for provider in models:
+                for model in models[provider]:
+                    print(f"Testing {provider}:{model} with tools query: {query[:30]}...")
+                    
+                    try:
+                        metrics = await self.generate_with_tools(
+                            provider_service,
+                            provider,
+                            model,
+                            query,
+                            BENCHMARK_TOOLS
+                        )
+                        
+                        results.append({
+                            "provider": provider,
+                            "model": model,
+                            "query": query,
+                            **metrics
+                        })
+                        
+                        # Save raw response
+                        model_safe_name = model.replace(":", "_")
+                        os.makedirs("tool_benchmark_responses", exist_ok=True)
+                        with open(f"tool_benchmark_responses/{provider}_{model_safe_name}.txt", "a") as f:
+                            f.write(f"\nQuery: {query}\n\n")
+                            f.write(f"Response: {metrics.get('message', 'ERROR: ' + metrics.get('error', 'Unknown error'))}\n")
+                            if metrics.get('tool_calls'):
+                                f.write("\nTool Calls:\n")
+                                f.write(json.dumps(metrics['tool_calls'], indent=2))
+                            f.write("\n" + "-" * 80 + "\n")
+                        
+                        # Add a delay to avoid rate limits
+                        await asyncio.sleep(2)
+                    except Exception as e:
+                        print(f"Error in benchmark: {str(e)}")
+        
+        # Create DataFrame
+        df = pd.DataFrame(results)
+        
+        # Save raw results
+        df.to_csv("benchmark_tool_usage_raw.csv", index=False)
+        
+        # Create summary
+        tool_usage_summary = df.groupby(["provider", "model"])[
+            ["success", "tools_used", "tool_call_count", "duration"]
+        ].agg({
+            "success": "mean", 
+            "tools_used": "mean", 
+            "tool_call_count": "mean",
+            "duration": "mean"
+        }).round(3)
+        
+        # Rename columns for clarity
+        tool_usage_summary.columns = [
+            "Success Rate", 
+            "Tool Usage Rate", 
+            "Avg Tool Calls",
+            "Avg Duration (s)"
+        ]
+        
+        # Save summary
+        tool_usage_summary.to_csv("benchmark_tool_usage_summary.csv")
+        
+        # Create visualizations
+        plt.figure(figsize=(15, 10))
+        
+        # Tool usage rate by model
+        plt.subplot(2, 2, 1)
+        tool_usage_summary["Tool Usage Rate"].plot(kind='bar')
+        plt.title("Tool Usage Rate by Model")
+        plt.ylabel("Rate (0-1)")
+        plt.ylim(0, 1)
+        plt.xticks(rotation=45)
+        
+        # Average tool calls by model
+        plt.subplot(2, 2, 2)
+        tool_usage_summary["Avg Tool Calls"].plot(kind='bar')
+        plt.title("Average Tool Calls per Query")
+        plt.ylabel("Count")
+        plt.xticks(rotation=45)
+        
+        # Success rate by model
+        plt.subplot(2, 2, 3)
+        tool_usage_summary["Success Rate"].plot(kind='bar')
+        plt.title("Success Rate")
+        plt.ylabel("Rate (0-1)")
+        plt.ylim(0, 1)
+        plt.xticks(rotation=45)
+        
+        # Average duration by model
+        plt.subplot(2, 2, 4)
+        tool_usage_summary["Avg Duration (s)"].plot(kind='bar')
+        plt.title("Average Response Time")
+        plt.ylabel("Seconds")
+        plt.xticks(rotation=45)
+        
+        plt.tight_layout()
+        plt.savefig('benchmark_tool_usage.png')
+        
+        # Print summary to console
+        print("\nTool Usage Benchmark Results:")
+        print(tool_usage_summary.to_string())
+        
+        # Qualitative analysis - extract patterns in tool usage
+        if len(df[df["tools_used"]]) > 0:
+            print("\nQualitative Analysis of Tool Usage:")
+            
+            # Comparison between providers
+            openai_correct = df[(df["provider"] == "openai") & (df["tools_used"])].shape[0]
+            openai_total = df[df["provider"] == "openai"].shape[0]
+            openai_rate = openai_correct / openai_total if openai_total > 0 else 0
+            
+            ollama_correct = df[(df["provider"] == "ollama") & (df["tools_used"])].shape[0]
+            ollama_total = df[df["provider"] == "ollama"].shape[0]
+            ollama_rate = ollama_correct / ollama_total if ollama_total > 0 else 0
+            
+            print(f"OpenAI tool usage rate: {openai_rate:.2f}")
+            print(f"Ollama tool usage rate: {ollama_rate:.2f}")
+            
+            if openai_rate > 0 and ollama_rate > 0:
+                ratio = openai_rate / ollama_rate
+                print(f"OpenAI is {ratio:.2f}x more likely to use tools correctly")
+            
+            # Additional insights
+            if "openai" in df["provider"].values and "ollama" in df["provider"].values:
+                openai_time = df[df["provider"] == "openai"]["duration"].mean()
+                ollama_time = df[df["provider"] == "ollama"]["duration"].mean()
+                
+                if openai_time > 0 and ollama_time > 0:
+                    time_ratio = openai_time / ollama_time
+                    print(f"Time ratio (OpenAI/Ollama): {time_ratio:.2f}")
+                    if time_ratio > 1:
+                        print(f"Ollama is {time_ratio:.2f}x faster for tool-related queries")
+                    else:
+                        print(f"OpenAI is {1/time_ratio:.2f}x faster for tool-related queries")
+        
+        # Assert something meaningful
+        assert len(results) > 0, "No benchmark results collected"
+```
+
+## Pytest Configuration
+
+```python
+# pytest.ini
+[pytest]
+markers =
+    unit: marks tests as unit tests
+    integration: marks tests as integration tests
+    performance: marks tests as performance tests
+    reliability: marks tests as reliability tests
+    benchmark: marks tests as benchmarks
+
+testpaths = tests
+
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+
+# Don't run performance tests by default
+addopts = -m "not performance and not reliability and not benchmark"
+
+# Configure test outputs
+junit_family = xunit2
+
+# Add environment variables for default runs
+env =
+    PYTHONPATH=.
+    OPENAI_MODEL=gpt-3.5-turbo
+    OLLAMA_MODEL=llama2
+    OLLAMA_HOST=http://localhost:11434
+```
+
+## Test Documentation
+
+```markdown
+# Testing Strategy for OpenAI-Ollama Integration
+
+This document outlines the comprehensive testing approach for the hybrid AI system that integrates OpenAI and Ollama.
+
+## 1. Unit Testing
+
+Unit tests verify the functionality of individual components in isolation:
+
+- **Provider Service**: Tests for provider selection logic, auto-routing, and fallback mechanisms
+- **Ollama Service**: Tests for response formatting, tool extraction, and error handling
+- **Model Selection**: Tests for use case detection and model recommendation logic
+- **Tool Integration**: Tests for proper handling of tool calls and responses
+
+Run unit tests with:
+```bash
+python -m pytest tests/unit -v
+```
+
+## 2. Integration Testing
+
+Integration tests verify the interaction between components:
+
+- **API Endpoints**: Tests for proper request handling, authentication, and response formatting
+- **End-to-End Agent Flows**: Tests for agent behavior across different scenarios
+- **Cross-Provider Integration**: Tests for seamless integration between OpenAI and Ollama
+
+Run integration tests with:
+```bash
+python -m pytest tests/integration -v
+```
+
+## 3. Performance Testing
+
+Performance tests measure system performance characteristics:
+
+- **Response Latency**: Compares response times across providers and models
+- **Memory Usage**: Measures memory consumption during request processing
+- **Response Quality**: Evaluates the quality of responses using GPT-4 as a judge
+
+Run performance tests with:
+```bash
+python -m pytest tests/performance -v
+```
+
+## 4. Reliability Testing
+
+Reliability tests verify the system's behavior under various conditions:
+
+- **Error Handling**: Tests for proper error detection and fallback mechanisms
+- **Load Testing**: Measures system performance under concurrent requests
+- **Stability Testing**: Evaluates system behavior during extended conversations
+
+Run reliability tests with:
+```bash
+python -m pytest tests/reliability -v
+```
+
+## 5. Benchmark Framework
+
+Comprehensive benchmarks for comparative analysis:
+
+- **Quality Matrix**: Compares response quality across providers and models
+- **Efficiency Analysis**: Measures performance/cost characteristics
+- **Tool Usage Comparison**: Evaluates tool handling capabilities
+
+Run benchmarks with:
+```bash
+python -m pytest tests/benchmarks -v
+```
+
+## Running the Complete Test Suite
+
+Use the test orchestration script to run all test suites:
+
+```bash
+python scripts/run_tests.py --all
+```
+
+## CI/CD Integration
+
+The test suite is integrated with GitHub Actions workflow:
+
+```bash
+# Triggered on push to main/develop or manually via workflow_dispatch
+git push origin main  # Automatically runs tests
+```
+
+## Prerequisites
+
+1. OpenAI API Key in environment variables:
+```
+export OPENAI_API_KEY=sk-...
+```
+
+2. Running Ollama instance:
+```bash
+ollama serve
+```
+
+3. Required models for Ollama:
+```bash
+ollama pull llama2
+ollama pull mistral
+```
+```
+
+## Conclusion
+
+This comprehensive testing strategy provides a robust framework for validating the hybrid AI architecture that integrates OpenAI's cloud capabilities with Ollama's local model inference. By implementing this multi-faceted testing approach, we ensure:
+
+1. **Functional Correctness**: Unit and integration tests verify that all components function as expected both individually and when integrated.
+
+2. **Performance Optimization**: Benchmarks and performance tests provide quantitative data to guide resource allocation and routing decisions.
+
+3. **Reliability**: Load and stability tests ensure the system remains responsive and produces consistent results under various conditions.
+
+4. **Quality Assurance**: Response quality evaluations ensure that the system maintains high standards regardless of which provider handles the inference.
+
+The test suite is designed to be extensible, allowing for additional test cases as the system evolves. By automating this testing strategy through CI/CD pipelines, we maintain ongoing quality assurance and enable continuous improvement of the hybrid AI architecture.
