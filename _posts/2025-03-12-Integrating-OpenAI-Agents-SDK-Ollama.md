@@ -9018,3 +9018,5599 @@ Both interfaces expose the key capabilities of the system:
 4. **Performance Analytics:** Visibility into system usage, costs, and efficiency
 
 These interfaces serve as the critical touchpoint between users and the sophisticated underlying architecture, making complex AI capabilities accessible and manageable.
+
+
+
+# Optimization and Deployment Strategies for OpenAI-Ollama Hybrid AI System
+
+## Strategic Optimization Framework
+
+The integration of cloud-based and local inference capabilities within a unified architecture presents unique opportunities for optimization across multiple dimensions. This document outlines comprehensive strategies for enhancing performance, reducing operational costs, and improving response accuracy, followed by detailed deployment methodologies for both local and cloud environments.
+
+## Performance Optimization Strategies
+
+### 1. Query Routing Optimization
+
+```python
+# app/services/routing_optimizer.py
+import logging
+import numpy as np
+from typing import Dict, List, Any, Optional
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+class RoutingOptimizer:
+    """Optimizes routing decisions based on historical performance data."""
+    
+    def __init__(self, cache_size: int = 1000):
+        self.performance_history = {}
+        self.cache_size = cache_size
+        self.learning_rate = 0.05
+        
+        # Baseline thresholds
+        self.complexity_threshold = settings.COMPLEXITY_THRESHOLD
+        self.token_threshold = 800  # Approximate tokens before preferring cloud
+        self.latency_requirement = 2.0  # Seconds
+        
+        # Performance weights
+        self.weights = {
+            "complexity": 0.4,
+            "token_count": 0.2,
+            "privacy_score": 0.3,
+            "tool_requirement": 0.1
+        }
+    
+    def update_performance_metrics(self, 
+                                  provider: str, 
+                                  model: str,
+                                  query_complexity: float, 
+                                  token_count: int,
+                                  response_time: float,
+                                  success: bool) -> None:
+        """Update performance metrics based on actual results."""
+        model_key = f"{provider}:{model}"
+        
+        if model_key not in self.performance_history:
+            self.performance_history[model_key] = {
+                "queries": 0,
+                "avg_response_time": 0,
+                "success_rate": 0,
+                "complexity_performance": {}  # Maps complexity ranges to success/time
+            }
+        
+        metrics = self.performance_history[model_key]
+        
+        # Update metrics with exponential moving average
+        metrics["queries"] += 1
+        metrics["avg_response_time"] = (
+            (1 - self.learning_rate) * metrics["avg_response_time"] + 
+            self.learning_rate * response_time
+        )
+        
+        # Update success rate
+        old_success_rate = metrics["success_rate"]
+        queries = metrics["queries"]
+        metrics["success_rate"] = (old_success_rate * (queries - 1) + (1 if success else 0)) / queries
+        
+        # Update complexity-specific performance
+        complexity_bin = round(query_complexity * 10) / 10  # Round to nearest 0.1
+        
+        if complexity_bin not in metrics["complexity_performance"]:
+            metrics["complexity_performance"][complexity_bin] = {
+                "count": 0,
+                "avg_time": 0,
+                "success_rate": 0
+            }
+            
+        bin_metrics = metrics["complexity_performance"][complexity_bin]
+        bin_metrics["count"] += 1
+        bin_metrics["avg_time"] = (
+            (bin_metrics["count"] - 1) * bin_metrics["avg_time"] + response_time
+        ) / bin_metrics["count"]
+        
+        bin_metrics["success_rate"] = (
+            (bin_metrics["count"] - 1) * bin_metrics["success_rate"] + (1 if success else 0)
+        ) / bin_metrics["count"]
+        
+        # Prune cache if needed
+        if len(self.performance_history) > self.cache_size:
+            # Remove least used models
+            sorted_models = sorted(
+                self.performance_history.items(),
+                key=lambda x: x[1]["queries"]
+            )
+            for i in range(len(self.performance_history) - self.cache_size):
+                if i < len(sorted_models):
+                    del self.performance_history[sorted_models[i][0]]
+    
+    def optimize_thresholds(self) -> None:
+        """Periodically optimize routing thresholds based on collected metrics."""
+        if not self.performance_history:
+            return
+        
+        openai_models = [k for k in self.performance_history if k.startswith("openai:")]
+        ollama_models = [k for k in self.performance_history if k.startswith("ollama:")]
+        
+        if not openai_models or not ollama_models:
+            return  # Need data from both providers
+        
+        # Calculate average performance metrics for each provider
+        openai_avg_time = np.mean([
+            self.performance_history[model]["avg_response_time"] 
+            for model in openai_models
+        ])
+        ollama_avg_time = np.mean([
+            self.performance_history[model]["avg_response_time"] 
+            for model in ollama_models
+        ])
+        
+        # Find optimal complexity threshold by analyzing where Ollama begins to struggle
+        complexity_success_rates = {}
+        
+        for model in ollama_models:
+            for complexity, metrics in self.performance_history[model]["complexity_performance"].items():
+                if complexity not in complexity_success_rates:
+                    complexity_success_rates[complexity] = []
+                complexity_success_rates[complexity].append(metrics["success_rate"])
+        
+        # Find the complexity level where Ollama success rate drops significantly
+        optimal_threshold = self.complexity_threshold  # Start with current
+        
+        if complexity_success_rates:
+            complexities = sorted(complexity_success_rates.keys())
+            avg_success_rates = [
+                np.mean(complexity_success_rates[c]) for c in complexities
+            ]
+            
+            # Find first major drop in success rate
+            for i in range(1, len(complexities)):
+                if (avg_success_rates[i-1] - avg_success_rates[i]) > 0.15:  # 15% drop
+                    optimal_threshold = complexities[i-1]
+                    break
+            
+            # If no clear drop, look for when it falls below 85%
+            if optimal_threshold == self.complexity_threshold:
+                for i, c in enumerate(complexities):
+                    if avg_success_rates[i] < 0.85:
+                        optimal_threshold = c
+                        break
+        
+        # Update thresholds (with dampening to avoid oscillation)
+        self.complexity_threshold = (
+            0.8 * self.complexity_threshold + 
+            0.2 * optimal_threshold
+        )
+        
+        # Update latency requirements based on current performance
+        self.latency_requirement = max(1.0, min(ollama_avg_time * 1.2, 5.0))
+        
+        logger.info(f"Optimized routing thresholds: complexity={self.complexity_threshold:.2f}, latency={self.latency_requirement:.2f}s")
+    
+    def get_optimal_provider(self, 
+                           query_complexity: float,
+                           privacy_score: float,
+                           estimated_tokens: int,
+                           requires_tools: bool) -> str:
+        """Get the optimal provider based on current metrics and query characteristics."""
+        # Calculate weighted score for routing decision
+        openai_score = 0
+        ollama_score = 0
+        
+        # Complexity factor
+        if query_complexity > self.complexity_threshold:
+            openai_score += self.weights["complexity"]
+        else:
+            ollama_score += self.weights["complexity"]
+        
+        # Token count factor
+        if estimated_tokens > self.token_threshold:
+            openai_score += self.weights["token_count"]
+        else:
+            ollama_score += self.weights["token_count"]
+        
+        # Privacy factor (higher privacy score means more sensitive)
+        if privacy_score > 0.5:
+            ollama_score += self.weights["privacy_score"]
+        else:
+            # Split proportionally
+            ollama_privacy = self.weights["privacy_score"] * privacy_score * 2
+            openai_privacy = self.weights["privacy_score"] * (1 - privacy_score * 2)
+            ollama_score += ollama_privacy
+            openai_score += openai_privacy
+            
+        # Tool requirements factor
+        if requires_tools:
+            openai_score += self.weights["tool_requirement"]
+        
+        # Return the provider with higher score
+        return "openai" if openai_score > ollama_score else "ollama"
+```
+
+### 2. Response Caching with Semantic Search
+
+```python
+# app/services/cache_service.py
+import time
+import hashlib
+import json
+from typing import Dict, List, Any, Optional, Tuple
+import numpy as np
+from scipy.spatial.distance import cosine
+import aioredis
+
+from app.config import settings
+from app.services.embedding_service import EmbeddingService
+
+class SemanticCache:
+    """Intelligent caching system using semantic similarity."""
+    
+    def __init__(self, embedding_service: EmbeddingService, ttl: int = 3600):
+        self.embedding_service = embedding_service
+        self.redis = None
+        self.ttl = ttl
+        self.similarity_threshold = 0.92  # Threshold for semantic similarity
+        self.exact_cache_enabled = True
+        self.semantic_cache_enabled = True
+    
+    async def initialize(self):
+        """Initialize Redis connection."""
+        self.redis = await aioredis.create_redis_pool(settings.REDIS_URL)
+    
+    async def close(self):
+        """Close Redis connection."""
+        if self.redis:
+            self.redis.close()
+            await self.redis.wait_closed()
+    
+    def _get_exact_cache_key(self, messages: List[Dict], provider: str, model: str) -> str:
+        """Generate an exact cache key from request parameters."""
+        # Normalize the request to ensure consistent keys
+        normalized = {
+            "messages": messages,
+            "provider": provider,
+            "model": model
+        }
+        serialized = json.dumps(normalized, sort_keys=True)
+        return f"exact:{hashlib.md5(serialized.encode()).hexdigest()}"
+    
+    async def _get_embedding_key(self, text: str) -> str:
+        """Get the embedding key for a text string."""
+        return f"emb:{hashlib.md5(text.encode()).hexdigest()}"
+    
+    async def _store_embedding(self, text: str, embedding: List[float]) -> None:
+        """Store an embedding in Redis."""
+        key = await self._get_embedding_key(text)
+        await self.redis.set(key, json.dumps(embedding), expire=self.ttl)
+    
+    async def _get_embedding(self, text: str) -> Optional[List[float]]:
+        """Get an embedding from Redis or compute it if not found."""
+        key = await self._get_embedding_key(text)
+        cached = await self.redis.get(key)
+        
+        if cached:
+            return json.loads(cached)
+        
+        # Generate new embedding
+        embedding = await self.embedding_service.get_embedding(text)
+        if embedding:
+            await self._store_embedding(text, embedding)
+        
+        return embedding
+    
+    async def _compute_similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
+        """Compute cosine similarity between embeddings."""
+        return 1 - cosine(embedding1, embedding2)
+    
+    async def get(self, messages: List[Dict], provider: str, model: str) -> Optional[Dict]:
+        """Get a cached response if available."""
+        if not self.redis:
+            return None
+            
+        # Try exact match first
+        if self.exact_cache_enabled:
+            exact_key = self._get_exact_cache_key(messages, provider, model)
+            cached = await self.redis.get(exact_key)
+            if cached:
+                return json.loads(cached)
+        
+        # Try semantic search if enabled
+        if self.semantic_cache_enabled:
+            # Extract query text (last user message)
+            query_text = None
+            for msg in reversed(messages):
+                if msg.get("role") == "user" and msg.get("content"):
+                    query_text = msg["content"]
+                    break
+            
+            if not query_text:
+                return None
+            
+            # Get embedding for query
+            query_embedding = await self._get_embedding(query_text)
+            if not query_embedding:
+                return None
+            
+            # Get all semantic cache keys
+            semantic_keys = await self.redis.keys("semantic:*")
+            if not semantic_keys:
+                return None
+            
+            # Find most similar cached query
+            best_match = None
+            best_similarity = 0
+            
+            for key in semantic_keys:
+                # Get metadata
+                meta_key = f"{key}:meta"
+                meta_data = await self.redis.get(meta_key)
+                if not meta_data:
+                    continue
+                
+                meta = json.loads(meta_data)
+                cached_embedding = meta.get("embedding")
+                
+                if not cached_embedding:
+                    continue
+                
+                # Check provider/model compatibility
+                if (provider != "auto" and meta.get("provider") != provider) or \
+                   (model and meta.get("model") != model):
+                    continue
+                
+                # Compute similarity
+                similarity = await self._compute_similarity(query_embedding, cached_embedding)
+                
+                if similarity > self.similarity_threshold and similarity > best_similarity:
+                    best_match = key
+                    best_similarity = similarity
+            
+            if best_match:
+                cached = await self.redis.get(best_match)
+                if cached:
+                    # Record cache hit analytics
+                    await self.redis.incr("stats:semantic_cache_hits")
+                    return json.loads(cached)
+        
+        # Record cache miss
+        await self.redis.incr("stats:cache_misses")
+        return None
+    
+    async def set(self, messages: List[Dict], provider: str, model: str, response: Dict) -> None:
+        """Set a response in the cache."""
+        if not self.redis:
+            return
+            
+        # Set exact match cache
+        if self.exact_cache_enabled:
+            exact_key = self._get_exact_cache_key(messages, provider, model)
+            await self.redis.set(exact_key, json.dumps(response), expire=self.ttl)
+        
+        # Set semantic cache
+        if self.semantic_cache_enabled:
+            # Extract query text (last user message)
+            query_text = None
+            for msg in reversed(messages):
+                if msg.get("role") == "user" and msg.get("content"):
+                    query_text = msg["content"]
+                    break
+            
+            if not query_text:
+                return
+            
+            # Get embedding for query
+            query_embedding = await self._get_embedding(query_text)
+            if not query_embedding:
+                return
+            
+            # Generate semantic key
+            semantic_key = f"semantic:{time.time()}:{hashlib.md5(query_text.encode()).hexdigest()}"
+            
+            # Store response
+            await self.redis.set(semantic_key, json.dumps(response), expire=self.ttl)
+            
+            # Store metadata (for similarity search)
+            meta_data = {
+                "query": query_text,
+                "embedding": query_embedding,
+                "provider": response.get("provider", provider),
+                "model": response.get("model", model),
+                "timestamp": time.time()
+            }
+            
+            await self.redis.set(f"{semantic_key}:meta", json.dumps(meta_data), expire=self.ttl)
+    
+    async def get_stats(self) -> Dict[str, int]:
+        """Get cache statistics."""
+        if not self.redis:
+            return {"hits": 0, "misses": 0, "semantic_hits": 0}
+            
+        exact_hits = int(await self.redis.get("stats:exact_cache_hits") or 0)
+        semantic_hits = int(await self.redis.get("stats:semantic_cache_hits") or 0)
+        misses = int(await self.redis.get("stats:cache_misses") or 0)
+        
+        return {
+            "exact_hits": exact_hits,
+            "semantic_hits": semantic_hits,
+            "total_hits": exact_hits + semantic_hits,
+            "misses": misses,
+            "hit_rate": (exact_hits + semantic_hits) / (exact_hits + semantic_hits + misses) if (exact_hits + semantic_hits + misses) > 0 else 0
+        }
+```
+
+### 3. Parallel Query Processing
+
+```python
+# app/services/parallel_processor.py
+import asyncio
+from typing import List, Dict, Any, Optional, Tuple
+import logging
+import time
+
+from app.services.provider_service import ProviderService
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+class ParallelProcessor:
+    """Processes complex queries by decomposing and running in parallel."""
+    
+    def __init__(self, provider_service: ProviderService):
+        self.provider_service = provider_service
+        # Threshold for when to use parallel processing
+        self.complexity_threshold = 0.8
+        self.parallel_enabled = settings.ENABLE_PARALLEL_PROCESSING
+    
+    async def should_process_in_parallel(self, messages: List[Dict]) -> bool:
+        """Determine if a query should be processed in parallel."""
+        if not self.parallel_enabled:
+            return False
+            
+        # Get the last user message
+        user_message = None
+        for msg in reversed(messages):
+            if msg.get("role") == "user":
+                user_message = msg.get("content", "")
+                break
+        
+        if not user_message:
+            return False
+            
+        # Check message length
+        if len(user_message.split()) < 50:
+            return False
+            
+        # Check for complexity indicators
+        complexity_markers = [
+            "compare", "analyze", "different perspectives", "pros and cons",
+            "multiple aspects", "detail", "comprehensive", "multifaceted"
+        ]
+        
+        marker_count = sum(1 for marker in complexity_markers if marker in user_message.lower())
+        
+        # Check for multiple questions
+        question_count = user_message.count("?")
+        
+        # Calculate complexity score
+        complexity = (marker_count * 0.15) + (question_count * 0.2) + (len(user_message.split()) / 500)
+        
+        return complexity > self.complexity_threshold
+    
+    async def decompose_query(self, query: str) -> List[str]:
+        """Decompose a complex query into simpler sub-queries."""
+        # Use the provider service to generate the decomposition
+        decompose_messages = [
+            {"role": "system", "content": """
+            You are a query decomposition specialist. Your job is to break down complex questions into 
+            simpler, independent sub-questions that can be answered separately and then combined.
+            
+            Return a JSON array of strings, where each string is a sub-question.
+            For example: ["What are the basics of quantum computing?", "How does quantum computing differ from classical computing?"]
+            
+            Keep the total number of sub-questions between 2 and 5.
+            """},
+            {"role": "user", "content": f"Decompose this complex query into simpler sub-questions: {query}"}
+        ]
+        
+        try:
+            response = await self.provider_service.generate_completion(
+                messages=decompose_messages,
+                provider="openai",  # Use OpenAI for decomposition
+                model="gpt-3.5-turbo", # Use a faster model for this task
+                response_format={"type": "json_object"}
+            )
+            
+            if response and response.get("message", {}).get("content"):
+                import json
+                result = json.loads(response["message"]["content"])
+                if isinstance(result, list) and all(isinstance(item, str) for item in result):
+                    return result
+                elif isinstance(result, dict) and "sub_questions" in result:
+                    return result["sub_questions"]
+            
+            # Fallback to simple decomposition
+            return [query]
+            
+        except Exception as e:
+            logger.error(f"Error decomposing query: {str(e)}")
+            # Fallback to simple decomposition
+            return [query]
+    
+    async def process_sub_query(self, sub_query: str, provider: str, model: str) -> Dict[str, Any]:
+        """Process a single sub-query."""
+        messages = [{"role": "user", "content": sub_query}]
+        
+        start_time = time.time()
+        response = await self.provider_service.generate_completion(
+            messages=messages,
+            provider=provider,
+            model=model
+        )
+        duration = time.time() - start_time
+        
+        return {
+            "query": sub_query,
+            "response": response,
+            "content": response.get("message", {}).get("content", ""),
+            "duration": duration
+        }
+    
+    async def synthesize_responses(self, 
+                                 original_query: str, 
+                                 sub_results: List[Dict]) -> str:
+        """Synthesize the responses from sub-queries into a cohesive answer."""
+        # Extract the responses
+        synthesize_prompt = f"""
+        Original question: {original_query}
+        
+        I've broken this question down into parts and found the following information:
+        
+        {
+            ''.join([f"Sub-question: {r['query']}\nAnswer: {r['content']}\n\n" for r in sub_results])
+        }
+        
+        Please synthesize this information into a cohesive, comprehensive answer to the original question.
+        Ensure the response is well-structured and flows naturally as if it were answering the original
+        question directly. Maintain a consistent tone throughout.
+        """
+        
+        messages = [
+            {"role": "system", "content": "You are an expert at synthesizing information from multiple sources into cohesive, comprehensive answers."},
+            {"role": "user", "content": synthesize_prompt}
+        ]
+        
+        try:
+            response = await self.provider_service.generate_completion(
+                messages=messages,
+                provider="openai",  # Use OpenAI for synthesis
+                model="gpt-4"  # Use a more capable model for synthesis
+            )
+            
+            if response and response.get("message", {}).get("content"):
+                return response["message"]["content"]
+            
+            # Fallback
+            return "\n\n".join([r['content'] for r in sub_results])
+        
+        except Exception as e:
+            logger.error(f"Error synthesizing responses: {str(e)}")
+            # Fallback to simple concatenation
+            return "\n\n".join([f"Regarding '{r['query']}':\n{r['content']}" for r in sub_results])
+    
+    async def process_in_parallel(self, 
+                                messages: List[Dict], 
+                                provider: str = "auto", 
+                                model: str = None) -> Dict[str, Any]:
+        """Process a complex query by breaking it down and processing in parallel."""
+        # Get the last user message
+        user_message = None
+        for msg in reversed(messages):
+            if msg.get("role") == "user":
+                user_message = msg.get("content", "")
+                break
+        
+        if not user_message:
+            # Fallback to regular processing
+            return await self.provider_service.generate_completion(
+                messages=messages,
+                provider=provider,
+                model=model
+            )
+        
+        # Decompose the query
+        sub_queries = await self.decompose_query(user_message)
+        
+        if len(sub_queries) <= 1:
+            # Not complex enough to benefit from parallel processing
+            return await self.provider_service.generate_completion(
+                messages=messages,
+                provider=provider,
+                model=model
+            )
+        
+        # Process sub-queries in parallel
+        tasks = [
+            self.process_sub_query(query, provider, model)
+            for query in sub_queries
+        ]
+        
+        sub_results = await asyncio.gather(*tasks)
+        
+        # Synthesize the results
+        final_content = await self.synthesize_responses(user_message, sub_results)
+        
+        # Calculate aggregated metrics
+        total_duration = sum(result["duration"] for result in sub_results)
+        providers_used = [result["response"].get("provider") for result in sub_results 
+                         if result["response"].get("provider")]
+        models_used = [result["response"].get("model") for result in sub_results 
+                      if result["response"].get("model")]
+        
+        # Construct a response in the same format as provider_service.generate_completion
+        return {
+            "id": f"parallel_{int(time.time())}",
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": ", ".join(set(models_used)) if models_used else model,
+            "provider": ", ".join(set(providers_used)) if providers_used else provider,
+            "usage": {
+                "prompt_tokens": sum(result["response"].get("usage", {}).get("prompt_tokens", 0) 
+                                  for result in sub_results),
+                "completion_tokens": sum(result["response"].get("usage", {}).get("completion_tokens", 0) 
+                                      for result in sub_results),
+                "total_tokens": sum(result["response"].get("usage", {}).get("total_tokens", 0) 
+                                 for result in sub_results)
+            },
+            "message": {
+                "role": "assistant",
+                "content": final_content
+            },
+            "parallel_processing": {
+                "sub_queries": len(sub_queries),
+                "total_duration": total_duration,
+                "max_duration": max(result["duration"] for result in sub_results),
+                "processing_efficiency": 1 - (max(result["duration"] for result in sub_results) / total_duration) 
+                                        if total_duration > 0 else 0
+            }
+        }
+```
+
+### 4. Dynamic Batching for High-Load Scenarios
+
+```python
+# app/services/batch_processor.py
+import asyncio
+from typing import List, Dict, Any, Optional, Callable, Awaitable
+import time
+import logging
+from collections import deque
+
+logger = logging.getLogger(__name__)
+
+class RequestBatcher:
+    """
+    Dynamically batches requests to optimize throughput under high load.
+    """
+    
+    def __init__(self, 
+                max_batch_size: int = 4,
+                max_wait_time: float = 0.1,
+                processor_fn: Optional[Callable] = None):
+        self.max_batch_size = max_batch_size
+        self.max_wait_time = max_wait_time
+        self.processor_fn = processor_fn
+        self.queue = deque()
+        self.batch_task = None
+        self.active = False
+        self.stats = {
+            "total_requests": 0,
+            "total_batches": 0,
+            "avg_batch_size": 0,
+            "max_queue_length": 0
+        }
+    
+    async def start(self):
+        """Start the batch processor."""
+        if self.active:
+            return
+            
+        self.active = True
+        self.batch_task = asyncio.create_task(self._batch_processor())
+        logger.info("Batch processor started")
+    
+    async def stop(self):
+        """Stop the batch processor."""
+        if not self.active:
+            return
+            
+        self.active = False
+        if self.batch_task:
+            try:
+                self.batch_task.cancel()
+                await self.batch_task
+            except asyncio.CancelledError:
+                pass
+        
+        logger.info("Batch processor stopped")
+    
+    async def _batch_processor(self):
+        """Background task to process batches."""
+        while self.active:
+            try:
+                # Process any batches in the queue
+                await self._process_next_batch()
+                
+                # Wait a small amount of time before checking again
+                await asyncio.sleep(0.01)
+            except Exception as e:
+                logger.error(f"Error in batch processor: {str(e)}")
+                await asyncio.sleep(1)  # Wait longer on error
+    
+    async def _process_next_batch(self):
+        """Process the next batch from the queue."""
+        if not self.queue:
+            return
+            
+        # Start timing from oldest request
+        oldest_request_time = self.queue[0][2]
+        current_time = time.time()
+        
+        # Process if we have max batch size or max wait time elapsed
+        if len(self.queue) >= self.max_batch_size or \
+           (current_time - oldest_request_time) >= self.max_wait_time:
+            
+            # Extract batch (up to max_batch_size)
+            batch_size = min(len(self.queue), self.max_batch_size)
+            batch = []
+            
+            for _ in range(batch_size):
+                request, future, _ = self.queue.popleft()
+                batch.append((request, future))
+            
+            # Update stats
+            self.stats["total_batches"] += 1
+            self.stats["avg_batch_size"] = ((self.stats["avg_batch_size"] * (self.stats["total_batches"] - 1)) + batch_size) / self.stats["total_batches"]
+            
+            # Process batch
+            asyncio.create_task(self._process_batch(batch))
+    
+    async def _process_batch(self, batch: List[tuple]):
+        """Process a batch of requests."""
+        if not self.processor_fn:
+            for _, future in batch:
+                if not future.done():
+                    future.set_exception(ValueError("No processor function set"))
+            return
+        
+        # Extract just the requests for processing
+        requests = [req for req, _ in batch]
+        
+        try:
+            # Process the batch
+            results = await self.processor_fn(requests)
+            
+            # Match results to futures
+            if results and len(results) == len(batch):
+                for i, (_, future) in enumerate(batch):
+                    if not future.done():
+                        future.set_result(results[i])
+            else:
+                # Handle mismatch in results
+                logger.error(f"Batch result count mismatch: {len(results)} results for {len(batch)} requests")
+                for _, future in batch:
+                    if not future.done():
+                        future.set_exception(ValueError("Batch processing error: result count mismatch"))
+                        
+        except Exception as e:
+            logger.error(f"Error processing batch: {str(e)}")
+            # Set exception for all futures in batch
+            for _, future in batch:
+                if not future.done():
+                    future.set_exception(e)
+    
+    async def submit(self, request: Any) -> Any:
+        """Submit a request for batched processing."""
+        self.stats["total_requests"] += 1
+        
+        # Create future for this request
+        future = asyncio.Future()
+        
+        # Add to queue with timestamp
+        self.queue.append((request, future, time.time()))
+        
+        # Update max queue length stat
+        queue_length = len(self.queue)
+        if queue_length > self.stats["max_queue_length"]:
+            self.stats["max_queue_length"] = queue_length
+        
+        # Return future
+        return await future
+```
+
+### 5. Model-Specific Prompt Optimization
+
+```python
+# app/services/prompt_optimizer.py
+import logging
+from typing import List, Dict, Any, Optional
+import re
+
+logger = logging.getLogger(__name__)
+
+class PromptOptimizer:
+    """Optimizes prompts for specific models to improve response quality and reduce token usage."""
+    
+    def __init__(self):
+        self.model_specific_templates = {
+            # OpenAI models
+            "gpt-4": {
+                "prefix": "",  # GPT-4 doesn't need special prefixing
+                "suffix": "",
+                "instruction_format": "{instruction}"
+            },
+            "gpt-3.5-turbo": {
+                "prefix": "",
+                "suffix": "",
+                "instruction_format": "{instruction}"
+            },
+            
+            # Ollama models - they benefit from more explicit formatting
+            "llama2": {
+                "prefix": "",
+                "suffix": "Think step-by-step and be thorough in your response.",
+                "instruction_format": "{instruction}"
+            },
+            "llama2:70b": {
+                "prefix": "",
+                "suffix": "",
+                "instruction_format": "{instruction}"
+            },
+            "mistral": {
+                "prefix": "",
+                "suffix": "Take a deep breath and work on this step-by-step.",
+                "instruction_format": "{instruction}"
+            },
+            "codellama": {
+                "prefix": "You are an expert programmer with years of experience. ",
+                "suffix": "Make sure your code is correct and efficient.",
+                "instruction_format": "Task: {instruction}"
+            },
+            "wizard-math": {
+                "prefix": "You are a mathematics expert. ",
+                "suffix": "Show your work step-by-step and explain your reasoning clearly.",
+                "instruction_format": "Problem: {instruction}"
+            }
+        }
+        
+        # Default template to use when model not specifically defined
+        self.default_template = {
+            "prefix": "",
+            "suffix": "",
+            "instruction_format": "{instruction}"
+        }
+        
+        # Task-specific optimizations
+        self.task_templates = {
+            "code_generation": {
+                "prefix": "You are an expert programmer. ",
+                "suffix": "Ensure your code is correct, efficient, and well-commented.",
+                "instruction_format": "Programming Task: {instruction}"
+            },
+            "creative_writing": {
+                "prefix": "You are a creative writer with excellent storytelling abilities. ",
+                "suffix": "",
+                "instruction_format": "Creative Writing Prompt: {instruction}"
+            },
+            "reasoning": {
+                "prefix": "You are a logical thinker with strong reasoning skills. ",
+                "suffix": "Think step-by-step and be precise in your analysis.",
+                "instruction_format": "Reasoning Task: {instruction}"
+            },
+            "math": {
+                "prefix": "You are a mathematics expert. ",
+                "suffix": "Show your work step-by-step with explanations.",
+                "instruction_format": "Math Problem: {instruction}"
+            }
+        }
+    
+    def detect_task_type(self, message: str) -> Optional[str]:
+        """Detect the type of task from the message content."""
+        message_lower = message.lower()
+        
+        # Code detection patterns
+        code_patterns = [
+            r"write (a|an|the)?\s?(code|function|program|script|class|method)",
+            r"implement (a|an|the)?\s?(algorithm|function|class|method)",
+            r"debug (this|the)?\s?(code|function|program)",
+            r"(js|javascript|python|java|c\+\+|go|rust|typescript)"
+        ]
+        
+        # Creative writing patterns
+        creative_patterns = [
+            r"write (a|an|the)?\s?(story|poem|essay|narrative|scene)",
+            r"create (a|an|the)?\s?(story|character|dialogue|setting)",
+            r"describe (a|an|the)?\s?(scene|character|setting|world)"
+        ]
+        
+        # Math patterns
+        math_patterns = [
+            r"calculate",
+            r"solve (this|the)?\s?(equation|problem|expression)",
+            r"compute",
+            r"what is (the)?\s?(value|result|answer)",
+            r"find (the)?\s?(derivative|integral|product|sum|limit)"
+        ]
+        
+        # Reasoning patterns
+        reasoning_patterns = [
+            r"analyze",
+            r"compare (and|&) contrast",
+            r"explain (why|how)",
+            r"what are (the)?\s?(pros|cons|advantages|disadvantages)",
+            r"evaluate"
+        ]
+        
+        # Check each pattern set
+        for pattern in code_patterns:
+            if re.search(pattern, message_lower):
+                return "code_generation"
+                
+        for pattern in creative_patterns:
+            if re.search(pattern, message_lower):
+                return "creative_writing"
+                
+        for pattern in math_patterns:
+            if re.search(pattern, message_lower):
+                return "math"
+                
+        for pattern in reasoning_patterns:
+            if re.search(pattern, message_lower):
+                return "reasoning"
+        
+        return None
+    
+    def optimize_system_prompt(self, original_prompt: str, model: str, task_type: Optional[str] = None) -> str:
+        """Optimize the system prompt for the specific model and task."""
+        # If no original prompt, return an appropriate default
+        if not original_prompt:
+            return "You are a helpful assistant. Provide accurate, detailed, and clear responses."
+        
+        # Get model-specific template
+        template = self.model_specific_templates.get(model, self.default_template)
+        
+        # If task type is provided, incorporate task-specific optimizations
+        if task_type and task_type in self.task_templates:
+            task_template = self.task_templates[task_type]
+            
+            # Merge templates, with task template taking precedence for non-empty values
+            merged_template = {
+                "prefix": task_template["prefix"] if task_template["prefix"] else template["prefix"],
+                "suffix": task_template["suffix"] if task_template["suffix"] else template["suffix"],
+                "instruction_format": task_template["instruction_format"]
+            }
+            
+            template = merged_template
+        
+        # Apply template
+        optimized_prompt = f"{template['prefix']}{original_prompt}"
+        
+        # Add suffix if it doesn't appear to already be present
+        if template["suffix"] and template["suffix"] not in optimized_prompt:
+            optimized_prompt += f" {template['suffix']}"
+        
+        return optimized_prompt
+    
+    def optimize_user_prompt(self, original_prompt: str, model: str, task_type: Optional[str] = None) -> str:
+        """Optimize the user prompt for the specific model and task."""
+        if not original_prompt:
+            return original_prompt
+            
+        # Auto-detect task type if not provided
+        if not task_type:
+            task_type = self.detect_task_type(original_prompt)
+        
+        # Get model-specific template
+        template = self.model_specific_templates.get(model, self.default_template)
+        
+        # If task type is provided, incorporate task-specific optimizations
+        if task_type and task_type in self.task_templates:
+            task_template = self.task_templates[task_type]
+            # Use task instruction format if available
+            instruction_format = task_template["instruction_format"]
+        else:
+            instruction_format = template["instruction_format"]
+        
+        # Apply instruction format if the prompt doesn't already look formatted
+        if "{instruction}" in instruction_format and not re.match(r"^(task|problem|prompt|question):", original_prompt.lower()):
+            formatted_prompt = instruction_format.replace("{instruction}", original_prompt)
+            return formatted_prompt
+        
+        return original_prompt
+    
+    def optimize_messages(self, messages: List[Dict[str, str]], model: str) -> List[Dict[str, str]]:
+        """Optimize all messages in a conversation for the specific model."""
+        if not messages:
+            return messages
+            
+        # Try to detect task type from the user messages
+        task_type = None
+        for msg in messages:
+            if msg.get("role") == "user" and msg.get("content"):
+                detected_task = self.detect_task_type(msg["content"])
+                if detected_task:
+                    task_type = detected_task
+                    break
+        
+        optimized = []
+        
+        for msg in messages:
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+            
+            if role == "system" and content:
+                optimized_content = self.optimize_system_prompt(content, model, task_type)
+                optimized.append({"role": role, "content": optimized_content})
+            elif role == "user" and content:
+                optimized_content = self.optimize_user_prompt(content, model, task_type)
+                optimized.append({"role": role, "content": optimized_content})
+            else:
+                # Keep other messages unchanged
+                optimized.append(msg)
+        
+        return optimized
+```
+
+## Cost Reduction Strategies
+
+### 1. Token Usage Optimization
+
+```python
+# app/services/token_optimizer.py
+import logging
+import re
+from typing import List, Dict, Any, Optional, Tuple
+import tiktoken
+import numpy as np
+
+logger = logging.getLogger(__name__)
+
+class TokenOptimizer:
+    """Optimizes token usage to reduce costs."""
+    
+    def __init__(self):
+        # Load tokenizers once
+        try:
+            self.gpt3_tokenizer = tiktoken.encoding_for_model("gpt-3.5-turbo")
+            self.gpt4_tokenizer = tiktoken.encoding_for_model("gpt-4")
+        except Exception as e:
+            logger.warning(f"Could not load tokenizers: {str(e)}. Falling back to approximate counting.")
+            self.gpt3_tokenizer = None
+            self.gpt4_tokenizer = None
+    
+    def count_tokens(self, text: str, model: str = "gpt-3.5-turbo") -> int:
+        """Count the number of tokens in a text string for a specific model."""
+        if not text:
+            return 0
+            
+        # Use appropriate tokenizer if available
+        if model.startswith("gpt-4") and self.gpt4_tokenizer:
+            return len(self.gpt4_tokenizer.encode(text))
+        elif model.startswith("gpt-3") and self.gpt3_tokenizer:
+            return len(self.gpt3_tokenizer.encode(text))
+        
+        # Fallback to approximation (~ 4 chars per token for English)
+        return len(text) // 4 + 1
+    
+    def count_message_tokens(self, messages: List[Dict[str, str]], model: str = "gpt-3.5-turbo") -> int:
+        """Count tokens in a full message array."""
+        if not messages:
+            return 0
+            
+        total = 0
+        
+        # Different models have different message formatting overheads
+        if model.startswith("gpt-3.5-turbo"):
+            # Per OpenAI's formula for message token counting
+            # See: https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
+            total += 3  # Every message follows <im_start>{role/name}\n{content}<im_end>\n
+            
+            for message in messages:
+                total += 3  # Role overhead
+                for key, value in message.items():
+                    if key == "name":  # Name is 1 token
+                        total += 1
+                    if key == "content" and value:
+                        total += self.count_tokens(value, model)
+            
+            total += 3  # Assistant response overhead
+            
+        elif model.startswith("gpt-4"):
+            # Similar formula for GPT-4
+            total += 3
+            
+            for message in messages:
+                total += 3
+                for key, value in message.items():
+                    if key == "name":
+                        total += 1
+                    if key == "content" and value:
+                        total += self.count_tokens(value, model)
+            
+            total += 3
+            
+        else:
+            # Simple approach for other models 
+            for message in messages:
+                content = message.get("content", "")
+                if content:
+                    total += self.count_tokens(content, model)
+        
+        return total
+    
+    def truncate_messages(self, 
+                         messages: List[Dict[str, str]], 
+                         max_tokens: int, 
+                         model: str = "gpt-3.5-turbo",
+                         preserve_system: bool = True,
+                         preserve_last_n_exchanges: int = 2) -> List[Dict[str, str]]:
+        """Truncate conversation history to fit within token limit."""
+        if not messages:
+            return messages
+            
+        # Clone messages to avoid modifying the original
+        messages = [m.copy() for m in messages]
+        
+        current_tokens = self.count_message_tokens(messages, model)
+        
+        # If already under the limit, return as is
+        if current_tokens <= max_tokens:
+            return messages
+        
+        # Identify system and user/assistant pairs
+        system_messages = [m for m in messages if m.get("role") == "system"]
+        system_tokens = sum(self.count_tokens(m.get("content", ""), model) for m in system_messages)
+        
+        # Extract exchanges (user followed by assistant message)
+        exchanges = []
+        current_exchange = []
+        
+        for m in messages:
+            if m.get("role") == "system":
+                continue
+                
+            current_exchange.append(m)
+            
+            # If we have a user+assistant pair, add to exchanges and reset
+            if len(current_exchange) == 2 and current_exchange[0].get("role") == "user" and current_exchange[1].get("role") == "assistant":
+                exchanges.append(current_exchange)
+                current_exchange = []
+                
+        # Add any remaining messages
+        if current_exchange:
+            exchanges.append(current_exchange)
+        
+        # Calculate tokens needed for essential parts
+        essential_tokens = system_tokens if preserve_system else 0
+        
+        # Add tokens for the last N exchanges
+        last_n_exchanges = exchanges[-preserve_last_n_exchanges:] if exchanges else []
+        last_n_tokens = sum(
+            self.count_tokens(m.get("content", ""), model) 
+            for exchange in last_n_exchanges 
+            for m in exchange
+        )
+        
+        essential_tokens += last_n_tokens
+        
+        # If essential parts already exceed the limit, we need more aggressive truncation
+        if essential_tokens > max_tokens:
+            logger.warning(f"Essential conversation parts exceed token limit: {essential_tokens} > {max_tokens}")
+            
+            # Start by keeping system messages if requested
+            result = system_messages.copy() if preserve_system else []
+            
+            # Add as many of the last exchanges as we can fit
+            remaining_tokens = max_tokens - sum(self.count_tokens(m.get("content", ""), model) for m in result)
+            
+            for exchange in reversed(last_n_exchanges):
+                exchange_tokens = sum(self.count_tokens(m.get("content", ""), model) for m in exchange)
+                
+                if exchange_tokens <= remaining_tokens:
+                    result.extend(exchange)
+                    remaining_tokens -= exchange_tokens
+                else:
+                    # If we can't fit the whole exchange, try truncating the assistant response
+                    if len(exchange) == 2:
+                        user_msg = exchange[0]
+                        assistant_msg = exchange[1].copy()
+                        
+                        user_tokens = self.count_tokens(user_msg.get("content", ""), model)
+                        
+                        if user_tokens < remaining_tokens:
+                            # We can include the user message
+                            result.append(user_msg)
+                            remaining_tokens -= user_tokens
+                            
+                            # Truncate the assistant message to fit
+                            assistant_content = assistant_msg.get("content", "")
+                            if assistant_content:
+                                # Simple truncation - in a real system, you'd want more intelligent truncation
+                                chars_to_keep = int(remaining_tokens * 4)  # Approximate char count
+                                truncated_content = assistant_content[:chars_to_keep] + "... [truncated]"
+                                assistant_msg["content"] = truncated_content
+                                result.append(assistant_msg)
+                    
+                    break
+            
+            # Resort the messages to maintain the correct order
+            result.sort(key=lambda m: messages.index(m) if m in messages else 999999)
+            return result
+        
+        # If we get here, we can keep all essential parts and need to drop from the middle
+        result = system_messages.copy() if preserve_system else []
+        middle_exchanges = exchanges[:-preserve_last_n_exchanges] if len(exchanges) > preserve_last_n_exchanges else []
+        
+        # Calculate how many tokens we can allocate to middle exchanges
+        remaining_tokens = max_tokens - essential_tokens
+        
+        # Add exchanges from the middle, newest first, until we run out of tokens
+        for exchange in reversed(middle_exchanges):
+            exchange_tokens = sum(self.count_tokens(m.get("content", ""), model) for m in exchange)
+            
+            if exchange_tokens <= remaining_tokens:
+                result.extend(exchange)
+                remaining_tokens -= exchange_tokens
+            else:
+                break
+        
+        # Add the preserved last exchanges
+        for exchange in last_n_exchanges:
+            result.extend(exchange)
+        
+        # Sort messages to maintain the correct order
+        result.sort(key=lambda m: messages.index(m) if m in messages else 999999)
+        
+        # Verify the result is within the token limit
+        final_tokens = self.count_message_tokens(result, model)
+        if final_tokens > max_tokens:
+            logger.warning(f"Truncation failed to meet target: {final_tokens} > {max_tokens}")
+        
+        return result
+    
+    def compress_system_prompt(self, system_prompt: str, max_tokens: int, model: str = "gpt-3.5-turbo") -> str:
+        """Compress a system prompt to use fewer tokens while preserving key information."""
+        current_tokens = self.count_tokens(system_prompt, model)
+        
+        if current_tokens <= max_tokens:
+            return system_prompt
+        
+        # Use a language model to compress the prompt
+        # In a real implementation, you might want to call an external service
+        
+        # Fallback compression strategy: Use text summarization techniques
+        # 1. Remove redundant phrases
+        redundant_phrases = [
+            "Please note that", "It's important to remember that", "Keep in mind that",
+            "I want you to", "I'd like you to", "You should", "Make sure to",
+            "Always", "Never", "Remember to"
+        ]
+        
+        compressed = system_prompt
+        for phrase in redundant_phrases:
+            compressed = compressed.replace(phrase, "")
+        
+        # 2. Replace verbose constructions with shorter ones
+        replacements = {
+            "in order to": "to",
+            "for the purpose of": "for",
+            "due to the fact that": "because",
+            "in the event that": "if",
+            "on the condition that": "if",
+            "with regard to": "about",
+            "in relation to": "about"
+        }
+        
+        for verbose, concise in replacements.items():
+            compressed = compressed.replace(verbose, concise)
+        
+        # 3. Remove unnecessary whitespace
+        compressed = re.sub(r'\s+', ' ', compressed).strip()
+        
+        # 4. If still over the limit, truncate with an ellipsis
+        compressed_tokens = self.count_tokens(compressed, model)
+        if compressed_tokens > max_tokens:
+            # Approximation: 4 characters per token
+            char_limit = max_tokens * 4
+            compressed = compressed[:char_limit] + "..."
+        
+        return compressed
+    
+    def optimize_messages_for_cost(self, 
+                                 messages: List[Dict[str, str]], 
+                                 model: str, 
+                                 max_tokens: int = 4096) -> List[Dict[str, str]]:
+        """Fully optimize messages for cost efficiency."""
+        if not messages:
+            return messages
+            
+        # 1. First, identify system messages for compression
+        system_messages = []
+        other_messages = []
+        
+        for msg in messages:
+            if msg.get("role") == "system":
+                system_messages.append(msg)
+            else:
+                other_messages.append(msg)
+        
+        # 2. Compress system messages if there are multiple
+        if len(system_messages) > 1:
+            # Combine multiple system messages
+            combined_content = " ".join(msg.get("content", "") for msg in system_messages)
+            compressed_content = self.compress_system_prompt(combined_content, 1024, model)
+            
+            # Replace with a single compressed message
+            system_messages = [{"role": "system", "content": compressed_content}]
+        elif len(system_messages) == 1 and self.count_tokens(system_messages[0].get("content", ""), model) > 1024:
+            # Compress a single long system message
+            system_messages[0]["content"] = self.compress_system_prompt(
+                system_messages[0].get("content", ""), 1024, model
+            )
+        
+        # 3. Recombine and truncate the full conversation
+        optimized = system_messages + other_messages
+        reserved_completion_tokens = max(max_tokens // 4, 1024)  # Reserve 25% or at least 1024 tokens for completion
+        max_prompt_tokens = max_tokens - reserved_completion_tokens
+        
+        return self.truncate_messages(
+            optimized, 
+            max_prompt_tokens, 
+            model,
+            preserve_system=True,
+            preserve_last_n_exchanges=2
+        )
+```
+
+### 2. Model Tier Selection
+
+```python
+# app/services/model_tier_service.py
+import logging
+from typing import Dict, List, Any, Optional, Tuple
+import re
+import time
+
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+class ModelTierService:
+    """Selects the appropriate model tier based on task requirements and budget constraints."""
+    
+    def __init__(self):
+        # Cost per 1000 tokens for different models (approximate)
+        self.model_costs = {
+            # OpenAI models input/output costs
+            "gpt-4": {"input": 0.03, "output": 0.06},
+            "gpt-4-32k": {"input": 0.06, "output": 0.12},
+            "gpt-4-turbo": {"input": 0.01, "output": 0.03},
+            "gpt-3.5-turbo": {"input": 0.0015, "output": 0.002},
+            "gpt-3.5-turbo-16k": {"input": 0.003, "output": 0.004},
+            
+            # Ollama models (local, so effectively zero API cost)
+            "llama2": {"input": 0, "output": 0},
+            "mistral": {"input": 0, "output": 0},
+            "codellama": {"input": 0, "output": 0}
+        }
+        
+        # Model capabilities and appropriate use cases
+        self.model_capabilities = {
+            "gpt-4": ["complex_reasoning", "creative", "code", "math", "general"],
+            "gpt-4-turbo": ["complex_reasoning", "creative", "code", "math", "general"],
+            "gpt-3.5-turbo": ["simple_reasoning", "general", "summarization"],
+            "llama2": ["simple_reasoning", "general", "summarization"],
+            "mistral": ["simple_reasoning", "general", "creative"],
+            "codellama": ["code"]
+        }
+        
+        # Default model selections for different task types
+        self.task_model_mapping = {
+            "complex_reasoning": {
+                "high": "gpt-4-turbo",
+                "medium": "gpt-4-turbo",
+                "low": "gpt-3.5-turbo"
+            },
+            "simple_reasoning": {
+                "high": "gpt-3.5-turbo",
+                "medium": "gpt-3.5-turbo",
+                "low": "mistral"
+            },
+            "creative": {
+                "high": "gpt-4-turbo",
+                "medium": "mistral",
+                "low": "mistral"
+            },
+            "code": {
+                "high": "gpt-4-turbo",
+                "medium": "codellama",
+                "low": "codellama"
+            },
+            "math": {
+                "high": "gpt-4-turbo",
+                "medium": "gpt-3.5-turbo",
+                "low": "mistral"
+            },
+            "general": {
+                "high": "gpt-3.5-turbo",
+                "medium": "mistral",
+                "low": "llama2"
+            },
+            "summarization": {
+                "high": "gpt-3.5-turbo",
+                "medium": "mistral",
+                "low": "llama2"
+            }
+        }
+        
+        # Budget tier thresholds - what percentage of budget is remaining?
+        self.budget_tiers = {
+            "high": 0.6,    # >60% of budget remaining
+            "medium": 0.3,  # 30-60% of budget remaining
+            "low": 0.0      # <30% of budget remaining
+        }
+        
+        # Initialize usage tracking
+        self.monthly_budget = settings.MONTHLY_BUDGET
+        self.usage_this_month = 0
+        self.month_start_timestamp = self._get_month_start_timestamp()
+    
+    def _get_month_start_timestamp(self) -> int:
+        """Get timestamp for the start of the current month."""
+        import datetime
+        now = datetime.datetime.now()
+        month_start = datetime.datetime(now.year, now.month, 1)
+        return int(month_start.timestamp())
+    
+    def detect_task_type(self, query: str) -> str:
+        """Detect the type of task from the query."""
+        query_lower = query.lower()
+        
+        # Check for code-related tasks
+        code_indicators = [
+            "code", "function", "program", "algorithm", "javascript", 
+            "python", "java", "c++", "typescript", "html", "css"
+        ]
+        if any(indicator in query_lower for indicator in code_indicators):
+            return "code"
+        
+        # Check for math problems
+        math_indicators = [
+            "calculate", "solve", "equation", "math problem", "compute",
+            "derivative", "integral", "algebra", "calculus", "arithmetic"
+        ]
+        if any(indicator in query_lower for indicator in math_indicators):
+            return "math"
+        
+        # Check for creative tasks
+        creative_indicators = [
+            "story", "poem", "creative", "imagine", "fiction", "fantasy",
+            "character", "novel", "script", "narrative", "write a"
+        ]
+        if any(indicator in query_lower for indicator in creative_indicators):
+            return "creative"
+        
+        # Check for complex reasoning
+        complex_indicators = [
+            "analyze", "critique", "evaluate", "compare and contrast",
+            "implications", "consequences", "recommend", "strategy",
+            "detailed explanation", "comprehensive", "thorough"
+        ]
+        if any(indicator in query_lower for indicator in complex_indicators):
+            return "complex_reasoning"
+        
+        # Check for summarization
+        summary_indicators = [
+            "summarize", "summary", "tldr", "briefly explain", "short version",
+            "key points", "main ideas"
+        ]
+        if any(indicator in query_lower for indicator in summary_indicators):
+            return "summarization"
+        
+        # Default to simple reasoning if no specific category is detected
+        simple_indicators = [
+            "explain", "how", "why", "what", "when", "who", "where",
+            "help me understand", "tell me about"
+        ]
+        if any(indicator in query_lower for indicator in simple_indicators):
+            return "simple_reasoning"
+        
+        # Fallback to general
+        return "general"
+    
+    def get_current_budget_tier(self) -> str:
+        """Get the current budget tier based on monthly usage."""
+        # Check if we're in a new month
+        current_month_start = self._get_month_start_timestamp()
+        if current_month_start > self.month_start_timestamp:
+            # Reset for new month
+            self.month_start_timestamp = current_month_start
+            self.usage_this_month = 0
+        
+        if self.monthly_budget <= 0:
+            # No budget constraints
+            return "high"
+        
+        # Calculate remaining budget percentage
+        remaining_percentage = 1 - (self.usage_this_month / self.monthly_budget)
+        
+        # Determine tier
+        if remaining_percentage > self.budget_tiers["high"]:
+            return "high"
+        elif remaining_percentage > self.budget_tiers["medium"]:
+            return "medium"
+        else:
+            return "low"
+    
+    def record_usage(self, model: str, input_tokens: int, output_tokens: int) -> None:
+        """Record token usage for budget tracking."""
+        if model not in self.model_costs:
+            return
+        
+        costs = self.model_costs[model]
+        input_cost = (input_tokens / 1000) * costs["input"]
+        output_cost = (output_tokens / 1000) * costs["output"]
+        total_cost = input_cost + output_cost
+        
+        self.usage_this_month += total_cost
+        
+        # Log for monitoring
+        logger.info(f"Usage recorded: {model}, {input_tokens} input tokens, {output_tokens} output tokens, ${total_cost:.4f}")
+    
+    def select_optimal_model(self, 
+                           query: str, 
+                           preferred_provider: Optional[str] = None,
+                           force_tier: Optional[str] = None) -> Tuple[str, str]:
+        """
+        Select the optimal model based on the query and budget constraints.
+        Returns a tuple of (provider, model)
+        """
+        # Detect task type
+        task_type = self.detect_task_type(query)
+        
+        # Get budget tier (unless forced)
+        budget_tier = force_tier if force_tier else self.get_current_budget_tier()
+        
+        # Get the recommended model for this task and budget tier
+        recommended_model = self.task_model_mapping[task_type][budget_tier]
+        
+        # Determine provider based on model
+        if recommended_model in ["llama2", "mistral", "codellama"]:
+            provider = "ollama"
+        else:
+            provider = "openai"
+        
+        # Override provider if specified and compatible
+        if preferred_provider:
+            if preferred_provider == "ollama" and provider == "openai":
+                # Find an Ollama alternative for this task
+                for model, capabilities in self.model_capabilities.items():
+                    if task_type in capabilities and model in ["llama2", "mistral", "codellama"]:
+                        recommended_model = model
+                        provider = "ollama"
+                        break
+            elif preferred_provider == "openai" and provider == "ollama":
+                # Find an OpenAI alternative for this task
+                for model, capabilities in self.model_capabilities.items():
+                    if task_type in capabilities and model not in ["llama2", "mistral", "codellama"]:
+                        recommended_model = model
+                        provider = "openai"
+                        break
+        
+        logger.info(f"Selected model for task '{task_type}' (tier: {budget_tier}): {provider}:{recommended_model}")
+        return provider, recommended_model
+    
+    def estimate_cost(self, model: str, input_tokens: int, expected_output_tokens: int) -> float:
+        """Estimate the cost of a request."""
+        if model not in self.model_costs:
+            return 0.0
+        
+        costs = self.model_costs[model]
+        input_cost = (input_tokens / 1000) * costs["input"]
+        output_cost = (expected_output_tokens / 1000) * costs["output"]
+        
+        return input_cost + output_cost
+```
+
+### 3. Local Model Prioritization for Development
+
+```python
+# app/services/dev_mode_service.py
+import logging
+import os
+from typing import Dict, List, Any, Optional
+import re
+
+logger = logging.getLogger(__name__)
+
+class DevModeService:
+    """
+    Service that prioritizes local models during development to reduce costs.
+    """
+    
+    def __init__(self):
+        # Read environment to determine if we're in development mode
+        self.is_dev_mode = os.environ.get("APP_ENV", "development").lower() == "development"
+        self.dev_mode_forced = os.environ.get("FORCE_DEV_MODE", "false").lower() == "true"
+        
+        # Set up developer-focused settings
+        self.allow_openai_for_patterns = [
+            r"(complex|sophisticated|advanced)\s+(reasoning|analysis)",
+            r"(gpt-4|gpt-3\.5|openai)"  # Explicit requests for OpenAI models
+        ]
+        
+        self.use_ollama_for_patterns = [
+            r"^test\s",  # Queries starting with "test"
+            r"^debug\s",  # Debugging queries
+            r"^hello\s",  # Simple greetings
+            r"^hi\s",
+            r"^try\s"
+        ]
+        
+        # Track usage for reporting
+        self.openai_requests = 0
+        self.ollama_requests = 0
+        self.redirected_requests = 0
+    
+    def is_development_environment(self) -> bool:
+        """Check if we're running in a development environment."""
+        return self.is_dev_mode or self.dev_mode_forced
+    
+    def should_use_local_model(self, query: str) -> bool:
+        """
+        Determine if a query should use local models in development mode.
+        In development, we default to local models unless specific patterns are matched.
+        """
+        if not self.is_development_environment():
+            return False
+        
+        # Always use local models for specific patterns
+        for pattern in self.use_ollama_for_patterns:
+            if re.search(pattern, query, re.IGNORECASE):
+                return True
+        
+        # Allow OpenAI for specific advanced patterns
+        for pattern in self.allow_openai_for_patterns:
+            if re.search(pattern, query, re.IGNORECASE):
+                return False
+        
+        # In development, default to local models to save costs
+        return True
+    
+    def get_dev_routing_decision(self, query: str, default_provider: str) -> str:
+        """
+        Make a routing decision based on development mode settings.
+        Returns: "openai" or "ollama"
+        """
+        if not self.is_development_environment():
+            return default_provider
+        
+        should_use_local = self.should_use_local_model(query)
+        
+        # Track for reporting
+        if should_use_local:
+            self.ollama_requests += 1
+            if default_provider == "openai":
+                self.redirected_requests += 1
+        else:
+            self.openai_requests += 1
+        
+        return "ollama" if should_use_local else "openai"
+    
+    def get_usage_report(self) -> Dict[str, Any]:
+        """Get a report of usage patterns for monitoring costs."""
+        total_requests = self.openai_requests + self.ollama_requests
+        
+        if total_requests == 0:
+            ollama_percentage = 0
+            redirected_percentage = 0
+        else:
+            ollama_percentage = (self.ollama_requests / total_requests) * 100
+            redirected_percentage = (self.redirected_requests / total_requests) * 100
+        
+        return {
+            "dev_mode_active": self.is_development_environment(),
+            "total_requests": total_requests,
+            "openai_requests": self.openai_requests,
+            "ollama_requests": self.ollama_requests,
+            "redirected_to_ollama": self.redirected_requests,
+            "ollama_usage_percentage": ollama_percentage,
+            "cost_savings_percentage": redirected_percentage
+        }
+```
+
+### 4. Request Batching and Rate Limiting
+
+```python
+# app/services/rate_limiter.py
+import time
+import asyncio
+import logging
+from typing import Dict, List, Any, Optional, Callable, Awaitable
+from collections import defaultdict
+import redis.asyncio as redis
+
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+class RateLimiter:
+    """
+    Rate limiter to control API usage and costs.
+    Implements tiered rate limiting based on user roles.
+    """
+    
+    def __init__(self):
+        self.redis = None
+        
+        # Rate limit tiers (requests per time window)
+        self.rate_limit_tiers = {
+            "free": {
+                "minute": 5,
+                "hour": 20,
+                "day": 100
+            },
+            "basic": {
+                "minute": 20,
+                "hour": 100,
+                "day": 1000
+            },
+            "premium": {
+                "minute": 60,
+                "hour": 1000,
+                "day": 10000
+            },
+            "enterprise": {
+                "minute": 120,
+                "hour": 5000,
+                "day": 50000
+            }
+        }
+        
+        # Provider-specific rate limits (global)
+        self.provider_rate_limits = {
+            "openai": {
+                "minute": 60,  # Shared across all users
+                "tokens_per_minute": 90000  # Token budget per minute
+            },
+            "ollama": {
+                "minute": 100,  # Higher for local models
+                "tokens_per_minute": 250000
+            }
+        }
+        
+        # Tracking for available token budgets
+        self.token_budgets = {
+            "openai": self.provider_rate_limits["openai"]["tokens_per_minute"],
+            "ollama": self.provider_rate_limits["ollama"]["tokens_per_minute"]
+        }
+        self.last_budget_reset = time.time()
+    
+    async def initialize(self):
+        """Initialize Redis connection."""
+        self.redis = await redis.from_url(settings.REDIS_URL)
+        
+        # Start token budget replenishment task
+        asyncio.create_task(self._token_budget_replenishment())
+    
+    async def _token_budget_replenishment(self):
+        """Periodically replenish token budgets."""
+        while True:
+            try:
+                now = time.time()
+                elapsed = now - self.last_budget_reset
+                
+                # Reset every minute
+                if elapsed >= 60:
+                    self.token_budgets = {
+                        "openai": self.provider_rate_limits["openai"]["tokens_per_minute"],
+                        "ollama": self.provider_rate_limits["ollama"]["tokens_per_minute"]
+                    }
+                    self.last_budget_reset = now
+                
+                # Partial replenishment for less than a minute
+                else:
+                    # Calculate replenishment based on elapsed time
+                    openai_replenishment = int((elapsed / 60) * self.provider_rate_limits["openai"]["tokens_per_minute"])
+                    ollama_replenishment = int((elapsed / 60) * self.provider_rate_limits["ollama"]["tokens_per_minute"])
+                    
+                    # Replenish up to max
+                    self.token_budgets["openai"] = min(
+                        self.token_budgets["openai"] + openai_replenishment,
+                        self.provider_rate_limits["openai"]["tokens_per_minute"]
+                    )
+                    self.token_budgets["ollama"] = min(
+                        self.token_budgets["ollama"] + ollama_replenishment,
+                        self.provider_rate_limits["ollama"]["tokens_per_minute"]
+                    )
+                    
+                    self.last_budget_reset = now
+            except Exception as e:
+                logger.error(f"Error in token budget replenishment: {str(e)}")
+            
+            # Update every 5 seconds
+            await asyncio.sleep(5)
+    
+    async def check_rate_limit(self, 
+                             user_id: str, 
+                             tier: str = "free",
+                             provider: str = "openai") -> Dict[str, Any]:
+        """
+        Check if a request is within rate limits.
+        Returns: {"allowed": bool, "retry_after": Optional[int], "reason": Optional[str]}
+        """
+        if not self.redis:
+            # If Redis is not available, allow the request but log a warning
+            logger.warning("Redis not available for rate limiting")
+            return {"allowed": True}
+        
+        # Get rate limits for this user's tier
+        tier_limits = self.rate_limit_tiers.get(tier, self.rate_limit_tiers["free"])
+        
+        # Check user-specific rate limits
+        for window, limit in tier_limits.items():
+            key = f"rate:user:{user_id}:{window}"
+            
+            # Get current count
+            count = await self.redis.get(key)
+            count = int(count) if count else 0
+            
+            if count >= limit:
+                ttl = await self.redis.ttl(key)
+                return {
+                    "allowed": False,
+                    "retry_after": max(1, ttl),
+                    "reason": f"Rate limit exceeded for {window}"
+                }
+        
+        # Check provider-specific rate limits
+        provider_limits = self.provider_rate_limits.get(provider, {})
+        if "minute" in provider_limits:
+            provider_key = f"rate:provider:{provider}:minute"
+            provider_count = await self.redis.get(provider_key)
+            provider_count = int(provider_count) if provider_count else 0
+            
+            if provider_count >= provider_limits["minute"]:
+                ttl = await self.redis.ttl(provider_key)
+                return {
+                    "allowed": False,
+                    "retry_after": max(1, ttl),
+                    "reason": f"Global {provider} rate limit exceeded"
+                }
+        
+        # Check token budget
+        if provider in self.token_budgets and self.token_budgets[provider] <= 0:
+            # Calculate time until next budget refresh
+            time_since_reset = time.time() - self.last_budget_reset
+            time_until_refresh = max(1, int(60 - time_since_reset))
+            
+            return {
+                "allowed": False,
+                "retry_after": time_until_refresh,
+                "reason": f"{provider} token budget exhausted"
+            }
+        
+        # All checks passed
+        return {"allowed": True}
+    
+    async def increment_counters(self, 
+                               user_id: str, 
+                               provider: str, 
+                               token_count: int = 0) -> None:
+        """Increment rate limit counters after a successful request."""
+        if not self.redis:
+            return
+        
+        now = int(time.time())
+        
+        # Increment user counters for different windows
+        pipeline = self.redis.pipeline()
+        
+        # Minute window (expires in 60 seconds)
+        minute_key = f"rate:user:{user_id}:minute"
+        pipeline.incr(minute_key)
+        pipeline.expireat(minute_key, now + 60)
+        
+        # Hour window (expires in 3600 seconds)
+        hour_key = f"rate:user:{user_id}:hour"
+        pipeline.incr(hour_key)
+        pipeline.expireat(hour_key, now + 3600)
+        
+        # Day window (expires in 86400 seconds)
+        day_key = f"rate:user:{user_id}:day"
+        pipeline.incr(day_key)
+        pipeline.expireat(day_key, now + 86400)
+        
+        # Increment provider counter
+        provider_key = f"rate:provider:{provider}:minute"
+        pipeline.incr(provider_key)
+        pipeline.expireat(provider_key, now + 60)
+        
+        # Execute all commands
+        await pipeline.execute()
+        
+        # Decrement token budget
+        if provider in self.token_budgets and token_count > 0:
+            self.token_budgets[provider] = max(0, self.token_budgets[provider] - token_count)
+    
+    async def get_user_usage(self, user_id: str) -> Dict[str, Any]:
+        """Get current usage statistics for a user."""
+        if not self.redis:
+            return {
+                "minute": 0,
+                "hour": 0,
+                "day": 0
+            }
+        
+        pipeline = self.redis.pipeline()
+        
+        # Get counts for all windows
+        pipeline.get(f"rate:user:{user_id}:minute")
+        pipeline.get(f"rate:user:{user_id}:hour")
+        pipeline.get(f"rate:user:{user_id}:day")
+        
+        # Get TTLs (time remaining)
+        pipeline.ttl(f"rate:user:{user_id}:minute")
+        pipeline.ttl(f"rate:user:{user_id}:hour")
+        pipeline.ttl(f"rate:user:{user_id}:day")
+        
+        results = await pipeline.execute()
+        
+        return {
+            "minute": {
+                "usage": int(results[0]) if results[0] else 0,
+                "reset_in": results[3] if results[3] and results[3] > 0 else 60
+            },
+            "hour": {
+                "usage": int(results[1]) if results[1] else 0,
+                "reset_in": results[4] if results[4] and results[4] > 0 else 3600
+            },
+            "day": {
+                "usage": int(results[2]) if results[2] else 0,
+                "reset_in": results[5] if results[5] and results[5] > 0 else 86400
+            }
+        }
+```
+
+### 5. Memory and Context Compression
+
+```python
+# app/services/context_compression.py
+import logging
+from typing import List, Dict, Any, Optional
+import re
+import json
+
+logger = logging.getLogger(__name__)
+
+class ContextCompressor:
+    """
+    Compresses conversation history to reduce token usage while preserving context.
+    """
+    
+    def __init__(self):
+        self.max_summary_tokens = 300  # Target size for summaries
+    
+    async def compress_history(self, 
+                             messages: List[Dict[str, str]],
+                             provider_service: Any) -> List[Dict[str, str]]:
+        """
+        Compress conversation history by summarizing older exchanges.
+        Returns a new message list with compressed history.
+        """
+        # If fewer than 4 messages (system + maybe 1-2 exchanges), no compression needed
+        if len(messages) < 4:
+            return messages.copy()
+        
+        # Extract system message
+        system_messages = [m for m in messages if m.get("role") == "system"]
+        
+        # Find the cut point - we'll preserve the most recent exchanges
+        if len(messages) <= 10:
+            # For shorter conversations, keep the most recent 3 messages (1-2 exchanges)
+            preserve_count = 3
+            compress_messages = messages[:-preserve_count]
+            preserve_messages = messages[-preserve_count:]
+        else:
+            # For longer conversations, preserve the most recent 4-6 messages (2-3 exchanges)
+            preserve_count = min(6, max(4, len(messages) // 5))
+            compress_messages = messages[:-preserve_count]
+            preserve_messages = messages[-preserve_count:]
+        
+        # No system message in the compression list
+        compress_messages = [m for m in compress_messages if m.get("role") != "system"]
+        
+        # If nothing to compress, return original
+        if not compress_messages:
+            return messages.copy()
+        
+        # Generate summary of the earlier conversation
+        summary = await self._generate_conversation_summary(compress_messages, provider_service)
+        
+        # Create a new message list with the summary + preserved messages
+        result = system_messages.copy()  # Start with system message(s)
+        
+        # Add summary as a system message
+        if summary:
+            result.append({
+                "role": "system",
+                "content": f"Previous conversation summary: {summary}"
+            })
+        
+        # Add preserved recent messages
+        result.extend(preserve_messages)
+        
+        return result
+    
+    async def _generate_conversation_summary(self, 
+                                          messages: List[Dict[str, str]], 
+                                          provider_service: Any) -> str:
+        """Generate a summary of the conversation history."""
+        if not messages:
+            return ""
+        
+        # Format the conversation for summarization
+        conversation_text = "\n".join([
+            f"{m.get('role', 'unknown')}: {m.get('content', '')}" 
+            for m in messages if m.get('content')
+        ])
+        
+        # Prepare the summarization prompt
+        summary_prompt = [
+            {"role": "system", "content": 
+                "You are a conversation summarizer. Create a concise summary of the key points "
+                "from the conversation that would help maintain context for future responses. "
+                "Focus on important information, user preferences, and outstanding questions. "
+                "Keep the summary under 200 words."
+            },
+            {"role": "user", "content": f"Summarize this conversation:\n\n{conversation_text}"}
+        ]
+        
+        # Get a summary using a smaller/faster model
+        try:
+            summary_response = await provider_service.generate_completion(
+                messages=summary_prompt,
+                provider="openai",  # Use OpenAI for reliability
+                model="gpt-3.5-turbo",  # Use a smaller model for efficiency
+                max_tokens=self.max_summary_tokens
+            )
+            
+            if summary_response and summary_response.get("message", {}).get("content"):
+                return summary_response["message"]["content"]
+            
+        except Exception as e:
+            logger.error(f"Error generating conversation summary: {str(e)}")
+            
+            # Simple fallback summary generation
+            topics = self._extract_topics(conversation_text)
+            if topics:
+                return f"Previous conversation covered: {', '.join(topics)}."
+        
+        return "The conversation covered various topics which have been summarized to save space."
+    
+    def _extract_topics(self, conversation_text: str) -> List[str]:
+        """Simple topic extraction as a fallback mechanism."""
+        # Extract potential topic indicators
+        topic_phrases = [
+            "discussed", "talked about", "mentioned", "referred to",
+            "asked about", "inquired about", "wanted to know"
+        ]
+        
+        topics = []
+        
+        for phrase in topic_phrases:
+            pattern = rf"{phrase} ([^\.,:;]+)"
+            matches = re.findall(pattern, conversation_text, re.IGNORECASE)
+            topics.extend(matches)
+        
+        # Deduplicate and limit
+        unique_topics = list(set(topics))
+        return unique_topics[:5]  # Return at most 5 topics
+    
+    async def compress_user_query(self,
+                               original_query: str,
+                               provider_service: Any) -> str:
+        """
+        Compress a long user query to reduce token usage while preserving intent.
+        Used for very long inputs.
+        """
+        # If query is already reasonably sized, return as is
+        if len(original_query.split()) < 100:
+            return original_query
+            
+        # Prepare compression prompt
+        compression_prompt = [
+            {"role": "system", "content": 
+                "You are a query optimizer. Your job is to reformulate user queries to be more "
+                "concise while preserving the core intent and all critical details. "
+                "Remove redundant information and excessive elaboration, but maintain all "
+                "specific requirements, constraints, and examples provided."
+            },
+            {"role": "user", "content": f"Optimize this query to be more concise while preserving all important details:\n\n{original_query}"}
+        ]
+        
+        # Get a compressed query
+        try:
+            compression_response = await provider_service.generate_completion(
+                messages=compression_prompt,
+                provider="openai",
+                model="gpt-3.5-turbo",
+                max_tokens=len(original_query.split()) // 2  # Target ~50% reduction
+            )
+            
+            if (compression_response and 
+                compression_response.get("message", {}).get("content") and
+                len(compression_response["message"]["content"]) < len(original_query)):
+                return compression_response["message"]["content"]
+                
+        except Exception as e:
+            logger.error(f"Error compressing user query: {str(e)}")
+        
+        # If compression fails or doesn't reduce size, return original
+        return original_query
+```
+
+## Response Accuracy Optimization Strategies
+
+### 1. Prompt Engineering Templates
+
+```python
+# app/services/prompt_templates.py
+from typing import Dict, List, Any, Optional
+import re
+
+class PromptTemplates:
+    """
+    Provides optimized prompt templates for different use cases to improve response accuracy.
+    """
+    
+    def __init__(self):
+        # Core system prompt templates
+        self.system_templates = {
+            "general": """
+                You are a helpful assistant with diverse knowledge and capabilities.
+                Provide accurate, relevant, and concise responses to user queries.
+                When you don't know something, admit it rather than making up information.
+                Format your responses clearly using markdown when helpful.
+            """,
+            
+            "coding": """
+                You are a coding assistant with expertise in programming languages and software development.
+                Provide correct, efficient, and well-documented code examples.
+                Explain your code clearly and highlight important concepts.
+                Format code blocks using markdown with appropriate syntax highlighting.
+                Suggest best practices and consider edge cases in your solutions.
+            """,
+            
+            "research": """
+                You are a research assistant with access to broad knowledge.
+                Provide comprehensive, accurate, and nuanced information.
+                Consider different perspectives and cite limitations of your knowledge.
+                Structure complex information clearly and logically.
+                Indicate uncertainty when appropriate rather than speculating.
+            """,
+            
+            "math": """
+                You are a mathematics tutor with expertise in various mathematical domains.
+                Provide step-by-step explanations for mathematical problems.
+                Use clear notation and formatting for equations using markdown.
+                Verify your solutions and check for errors or edge cases.
+                When solving problems, explain the underlying concepts and techniques.
+            """,
+            
+            "creative": """
+                You are a creative assistant skilled in writing, storytelling, and idea generation.
+                Provide original, engaging, and imaginative content based on user requests.
+                Consider tone, style, and audience in your creative work.
+                When generating stories or content, maintain internal consistency.
+                Respect copyright and avoid plagiarizing existing creative works.
+            """
+        }
+        
+        # Task-specific prompt templates that can be inserted into system prompts
+        self.task_templates = {
+            "step_by_step": """
+                Break down your explanation into clear, logical steps.
+                Begin with foundational concepts before advancing to more complex ideas.
+                Use numbered or bulleted lists for sequential instructions or key points.
+                Provide examples to illustrate abstract concepts.
+            """,
+            
+            "comparison": """
+                Present a balanced and objective comparison.
+                Identify clear categories for comparison (features, performance, use cases, etc.).
+                Highlight both similarities and differences.
+                Consider context and specific use cases in your evaluation.
+                Avoid unjustified bias and present evidence for evaluative statements.
+            """,
+            
+            "factual_accuracy": """
+                Prioritize accuracy over comprehensiveness.
+                Clearly distinguish between well-established facts, expert consensus, and speculation.
+                Acknowledge limitations in your knowledge, especially for time-sensitive information.
+                Avoid overgeneralizations and recognize exceptions where relevant.
+            """,
+            
+            "technical_explanation": """
+                Begin with a high-level overview before diving into technical details.
+                Define specialized terminology when introduced.
+                Use analogies to explain complex concepts when appropriate.
+                Balance technical precision with accessibility based on the apparent expertise level of the user.
+            """
+        }
+        
+        # Output format templates
+        self.format_templates = {
+            "pros_cons": """
+                Structure your response with clearly labeled sections for advantages and disadvantages.
+                Use bullet points or numbered lists for each point.
+                Consider different perspectives or use cases.
+                If applicable, provide a balanced conclusion or recommendation.
+            """,
+            
+            "academic": """
+                Structure your response similar to an academic paper with introduction, body, and conclusion.
+                Use formal language and precise terminology.
+                Acknowledge limitations and alternative viewpoints.
+                Refer to theoretical frameworks or methodologies where relevant.
+            """,
+            
+            "tutorial": """
+                Structure your response as a tutorial with clear sections:
+                - Introduction explaining what will be covered and prerequisites
+                - Step-by-step instructions with examples
+                - Common pitfalls or troubleshooting tips
+                - Summary of key takeaways
+                Use headings and code blocks with appropriate formatting.
+            """,
+            
+            "eli5": """
+                Explain the concept as if to a 10-year-old with no specialized knowledge.
+                Use simple language and concrete analogies.
+                Break complex ideas into simple components.
+                Avoid jargon, or define terms very clearly when they must be used.
+            """
+        }
+    
+    def get_system_prompt(self, category: str, include_tasks: List[str] = None) -> str:
+        """Get a system prompt template with optional task-specific additions."""
+        base_template = self.system_templates.get(
+            category, 
+            self.system_templates["general"]
+        ).strip()
+        
+        if not include_tasks:
+            return base_template
+        
+        # Add selected task templates
+        task_additions = []
+        for task in include_tasks:
+            if task in self.task_templates:
+                task_additions.append(self.task_templates[task].strip())
+        
+        if task_additions:
+            combined = base_template + "\n\n" + "\n\n".join(task_additions)
+            return combined
+        
+        return base_template
+    
+    def enhance_user_prompt(self, original_prompt: str, format_type: str = None) -> str:
+        """Enhance a user prompt with formatting instructions."""
+        if not format_type or format_type not in self.format_templates:
+            return original_prompt
+        
+        format_instructions = self.format_templates[format_type].strip()
+        enhanced_prompt = f"{original_prompt}\n\nPlease format your response as follows:\n{format_instructions}"
+        
+        return enhanced_prompt
+    
+    def detect_format_type(self, prompt: str) -> Optional[str]:
+        """Detect what format type might be appropriate based on prompt content."""
+        prompt_lower = prompt.lower()
+        
+        # Check for format indicators
+        if any(phrase in prompt_lower for phrase in ["pros and cons", "advantages and disadvantages", "benefits and drawbacks"]):
+            return "pros_cons"
+        
+        if any(phrase in prompt_lower for phrase in ["academic", "paper", "research", "literature", "theoretical"]):
+            return "academic"
+        
+        if any(phrase in prompt_lower for phrase in ["tutorial", "how to", "guide", "step by step", "walkthrough"]):
+            return "tutorial"
+        
+        if any(phrase in prompt_lower for phrase in ["explain like", "eli5", "simple terms", "layman's terms", "simply explain"]):
+            return "eli5"
+        
+        return None
+```
+
+### 2. Context-Aware Chain of Thought
+
+```python
+# app/services/chain_of_thought.py
+from typing import Dict, List, Any, Optional
+import logging
+import json
+import re
+
+logger = logging.getLogger(__name__)
+
+class ChainOfThoughtService:
+    """
+    Enhances response accuracy by enabling step-by-step reasoning.
+    """
+    
+    def __init__(self):
+        # Configure when to use chain-of-thought prompting
+        self.cot_triggers = [
+            # Keywords indicating complex reasoning is needed
+            r"(why|how|explain|analyze|reason|think|consider)",
+            # Question patterns that benefit from step-by-step thinking
+            r"(what (would|will|could|might) happen if)",
+            r"(what (is|are) the (cause|reason|impact|effect|implication))",
+            # Complexity indicators
+            r"(complex|complicated|difficult|challenging|nuanced)",
+            # Multi-step problems
+            r"(steps|process|procedure|method|approach)"
+        ]
+        
+        # Task-specific CoT templates
+        self.cot_templates = {
+            "general": "Let's think through this step-by-step.",
+            
+            "math": """
+                Let's solve this step-by-step:
+                1. First, understand what we're looking for
+                2. Identify the relevant information and equations
+                3. Work through the solution methodically
+                4. Verify the answer makes sense
+            """,
+            
+            "reasoning": """
+                Let's approach this systematically:
+                1. Identify the key elements of the problem
+                2. Consider relevant principles and constraints
+                3. Analyze potential approaches
+                4. Evaluate and compare alternatives
+                5. Draw a well-reasoned conclusion
+            """,
+            
+            "decision": """
+                Let's analyze this decision carefully:
+                1. Clarify the decision to be made
+                2. Identify the key criteria and constraints
+                3. Consider the available options
+                4. Evaluate each option against the criteria
+                5. Assess potential risks and trade-offs
+                6. Recommend the best course of action with justification
+            """,
+            
+            "causal": """
+                Let's analyze the causal relationships:
+                1. Identify the events or phenomena to be explained
+                2. Consider potential causes and mechanisms
+                3. Evaluate the evidence for each causal link
+                4. Consider alternative explanations
+                5. Draw conclusions about the most likely causal relationships
+            """
+        }
+        
+        # Internal vs. external CoT modes
+        self.cot_modes = {
+            "internal": {
+                "prefix": "Think through this problem step-by-step before providing your final answer.",
+                "format": "standard"  # No special formatting needed
+            },
+            "external": {
+                "prefix": "Show your step-by-step reasoning process explicitly in your response.",
+                "format": "markdown"  # Format as markdown
+            }
+        }
+    
+    def should_use_cot(self, query: str) -> bool:
+        """Determine if chain-of-thought prompting should be used for this query."""
+        query_lower = query.lower()
+        
+        # Check for CoT triggers
+        for pattern in self.cot_triggers:
+            if re.search(pattern, query_lower):
+                return True
+        
+        # Check for task complexity indicators
+        if len(query.split()) > 30:  # Longer queries often benefit from CoT
+            return True
+            
+        # Check for explicit reasoning requests
+        explicit_requests = [
+            "step by step", "explain your reasoning", "think through", 
+            "show your work", "explain how you", "walk me through"
+        ]
+        
+        if any(request in query_lower for request in explicit_requests):
+            return True
+        
+        return False
+    
+    def detect_task_type(self, query: str) -> str:
+        """Detect the type of reasoning task from the query."""
+        query_lower = query.lower()
+        
+        # Check for mathematical content
+        math_indicators = [
+            "calculate", "compute", "solve", "equation", "formula",
+            "find the value", "what is the result", r"\d+(\.\d+)?"
+        ]
+        
+        if any(re.search(indicator, query_lower) for indicator in math_indicators):
+            return "math"
+        
+        # Check for decision-making queries
+        decision_indicators = [
+            "should i", "which is better", "what's the best", "recommend", 
+            "decide between", "choose", "options"
+        ]
+        
+        if any(indicator in query_lower for indicator in decision_indicators):
+            return "decision"
+        
+        # Check for causal analysis
+        causal_indicators = [
+            "why did", "what caused", "reason for", "explain why",
+            "how does", "what leads to", "effect of", "impact of"
+        ]
+        
+        if any(indicator in query_lower for indicator in causal_indicators):
+            return "causal"
+        
+        # Default to general reasoning
+        reasoning_indicators = [
+            "explain", "analyze", "evaluate", "critique", "assess",
+            "compare", "contrast", "discuss", "review"
+        ]
+        
+        if any(indicator in query_lower for indicator in reasoning_indicators):
+            return "reasoning"
+        
+        return "general"
+    
+    def enhance_prompt_with_cot(self, 
+                              query: str, 
+                              mode: str = "internal",
+                              explicit_template: bool = False) -> str:
+        """
+        Enhance a prompt with chain-of-thought instructions.
+        
+        Args:
+            query: The original user query
+            mode: "internal" (for model thinking) or "external" (for visible reasoning)
+            explicit_template: Whether to include the full template or just the instruction
+        """
+        if not self.should_use_cot(query):
+            return query
+        
+        # Get CoT mode configuration
+        cot_mode = self.cot_modes.get(mode, self.cot_modes["internal"])
+        
+        # Detect the task type
+        task_type = self.detect_task_type(query)
+        
+        # Get the appropriate template
+        template = self.cot_templates.get(task_type, self.cot_templates["general"])
+        
+        if explicit_template:
+            # Add the full template
+            enhanced = f"{query}\n\n{cot_mode['prefix']}\n\n{template.strip()}"
+        else:
+            # Just add the basic instruction
+            enhanced = f"{query}\n\n{cot_mode['prefix']}"
+        
+        return enhanced
+    
+    def format_cot_for_response(self, reasoning: str, final_answer: str, mode: str = "external") -> str:
+        """
+        Format chain-of-thought reasoning and final answer for response.
+        
+        Args:
+            reasoning: The step-by-step reasoning process
+            final_answer: The final answer or conclusion
+            mode: "internal" (hidden) or "external" (visible)
+        """
+        if mode == "internal":
+            # For internal mode, just return the final answer
+            return final_answer
+        
+        # For external mode, format the reasoning and answer
+        formatted = f"""
+## Reasoning Process
+
+{reasoning}
+
+## Conclusion
+
+{final_answer}
+"""
+        return formatted.strip()
+```
+
+### 3. Self-Verification and Error Correction
+
+```python
+# app/services/verification_service.py
+import logging
+from typing import Dict, List, Any, Optional, Tuple
+import re
+import json
+
+logger = logging.getLogger(__name__)
+
+class VerificationService:
+    """
+    Improves response accuracy through self-verification and error correction.
+    """
+    
+    def __init__(self):
+        # Define verification categories
+        self.verification_categories = [
+            "factual_accuracy",
+            "logical_consistency",
+            "completeness",
+            "code_correctness",
+            "calculation_accuracy",
+            "bias_detection"
+        ]
+        
+        # High-risk categories that should always be verified
+        self.high_risk_categories = [
+            "medical",
+            "legal",
+            "financial",
+            "security"
+        ]
+        
+        # Verification prompt templates
+        self.verification_templates = {
+            "general": """
+                Please verify your response for:
+                1. Factual accuracy - Are all stated facts correct?
+                2. Logical consistency - Is the reasoning sound and free of contradictions?
+                3. Completeness - Does the answer address all aspects of the question?
+                4. Clarity - Is the response clear and easy to understand?
+                
+                If you find any errors or omissions, please correct them in your response.
+            """,
+            
+            "factual": """
+                Critically verify the factual claims in your response:
+                - Are dates, names, and definitions accurate?
+                - Are statistics and measurements correct?
+                - Are attributions to people, organizations, or sources accurate?
+                - Have you distinguished between facts and opinions/interpretations?
+                
+                If you identify any factual errors, please correct them.
+            """,
+            
+            "code": """
+                Verify your code for:
+                1. Syntax errors and typos
+                2. Logical correctness - does it perform the intended function?
+                3. Edge cases and error handling
+                4. Efficiency and best practices
+                5. Security vulnerabilities
+                
+                If you find any issues, please provide corrected code.
+            """,
+            
+            "math": """
+                Verify your mathematical work by:
+                1. Re-checking each calculation step
+                2. Verifying that formulas are applied correctly
+                3. Confirming unit conversions if applicable
+                4. Testing the solution with sample values if possible
+                5. Checking for arithmetic errors
+                
+                If you find any errors, please recalculate and provide the correct answer.
+            """,
+            
+            "bias": """
+                Check your response for potential biases:
+                1. Is the framing balanced and objective?
+                2. Have you considered diverse perspectives?
+                3. Are there cultural, geographic, or demographic assumptions?
+                4. Does the language contain implicit value judgments?
+                
+                If you detect bias, please revise for greater objectivity.
+            """
+        }
+    
+    def detect_verification_needs(self, query: str) -> List[str]:
+        """Detect which verification categories are needed based on the query."""
+        query_lower = query.lower()
+        needed_categories = []
+        
+        # Check for high-risk topics
+        high_risk_detected = False
+        for category in self.high_risk_categories:
+            if category in query_lower or f"related to {category}" in query_lower:
+                high_risk_detected = True
+                break
+        
+        # For high-risk topics, perform comprehensive verification
+        if high_risk_detected:
+            return ["factual_accuracy", "logical_consistency", "completeness", "bias_detection"]
+        
+        # Check for code-related content
+        code_indicators = ["code", "function", "program", "algorithm", "syntax"]
+        if any(indicator in query_lower for indicator in code_indicators):
+            needed_categories.append("code_correctness")
+        
+        # Check for mathematical content
+        math_indicators = ["calculate", "compute", "solve", "equation", "math problem"]
+        if any(indicator in query_lower for indicator in math_indicators):
+            needed_categories.append("calculation_accuracy")
+        
+        # Check for factual questions
+        factual_indicators = ["fact", "information about", "when did", "who is", "history of"]
+        if any(indicator in query_lower for indicator in factual_indicators):
+            needed_categories.append("factual_accuracy")
+        
+        # Check for logical reasoning requirements
+        logic_indicators = ["why", "explain", "reason", "because", "therefore", "hence"]
+        if any(indicator in query_lower for indicator in logic_indicators):
+            needed_categories.append("logical_consistency")
+        
+        # For comprehensive questions
+        if len(query.split()) > 30 or "comprehensive" in query_lower or "detailed" in query_lower:
+            needed_categories.append("completeness")
+        
+        # For sensitive or controversial topics
+        sensitive_indicators = ["controversy", "debate", "opinion", "perspective", "ethical"]
+        if any(indicator in query_lower for indicator in sensitive_indicators):
+            needed_categories.append("bias_detection")
+        
+        # Default to basic verification if nothing specific detected
+        if not needed_categories:
+            needed_categories = ["factual_accuracy", "logical_consistency"]
+        
+        return needed_categories
+    
+    def get_verification_prompt(self, categories: List[str]) -> str:
+        """Get the appropriate verification prompt based on needed categories."""
+        if "code_correctness" in categories and len(categories) == 1:
+            return self.verification_templates["code"]
+            
+        if "calculation_accuracy" in categories and len(categories) == 1:
+            return self.verification_templates["math"]
+            
+        if "factual_accuracy" in categories and "bias_detection" not in categories:
+            return self.verification_templates["factual"]
+            
+        if "bias_detection" in categories and len(categories) == 1:
+            return self.verification_templates["bias"]
+            
+        # Default to general verification
+        return self.verification_templates["general"]
+    
+    async def verify_response(self, 
+                            query: str, 
+                            initial_response: str,
+                            provider_service: Any) -> Tuple[str, bool]:
+        """
+        Verify and potentially correct a response.
+        
+        Returns:
+            Tuple of (verified_response, was_corrected)
+        """
+        # Detect verification needs
+        verification_categories = self.detect_verification_needs(query)
+        
+        # If no verification needed, return original
+        if not verification_categories:
+            return initial_response, False
+            
+        # Get verification prompt
+        verification_prompt = self.get_verification_prompt(verification_categories)
+        
+        # Create verification messages
+        verification_messages = [
+            {"role": "system", "content": 
+                "You are a verification assistant. Your job is to verify the accuracy, "
+                "consistency, and completeness of responses. Identify any errors or "
+                "issues, and provide corrections when necessary."
+            },
+            {"role": "user", "content": query},
+            {"role": "assistant", "content": initial_response},
+            {"role": "user", "content": verification_prompt}
+        ]
+        
+        try:
+            verification_response = await provider_service.generate_completion(
+                messages=verification_messages,
+                provider="openai",  # Use OpenAI for verification
+                model="gpt-4"  # Use a more capable model for verification
+            )
+            
+            if verification_response and verification_response.get("message", {}).get("content"):
+                # Check if verification found issues
+                verification_text = verification_response["message"]["content"]
+                
+                # Look for indicators of corrections
+                correction_indicators = [
+                    "correction", "error", "mistake", "incorrect", 
+                    "needs clarification", "inaccurate", "not quite right"
+                ]
+                
+                if any(indicator in verification_text.lower() for indicator in correction_indicators):
+                    # Attempt to correct the response
+                    corrected_response = await self._generate_corrected_response(
+                        query, initial_response, verification_text, provider_service
+                    )
+                    return corrected_response, True
+                
+                # If verification found no issues, or was just minor clarifications
+                minor_indicators = ["minor clarification", "additional note", "small correction"]
+                if any(indicator in verification_text.lower() for indicator in minor_indicators):
+                    # Include the clarification in the response
+                    combined = f"{initial_response}\n\n**Note:** {verification_text}"
+                    return combined, True
+            
+            # If verification failed or found no issues
+            return initial_response, False
+                
+        except Exception as e:
+            logger.error(f"Error in response verification: {str(e)}")
+            return initial_response, False
+    
+    async def _generate_corrected_response(self,
+                                        query: str,
+                                        initial_response: str,
+                                        verification_text: str,
+                                        provider_service: Any) -> str:
+        """Generate a corrected response based on verification feedback."""
+        correction_prompt = [
+            {"role": "system", "content": 
+                "You are a correction assistant. Your job is to provide a revised response "
+                "that addresses the issues identified in the verification feedback. "
+                "Create a complete, standalone corrected response."
+            },
+            {"role": "user", "content": f"Original question:\n{query}"},
+            {"role": "assistant", "content": f"Initial response:\n{initial_response}"},
+            {"role": "user", "content": f"Verification feedback:\n{verification_text}\n\nPlease provide a corrected response."}
+        ]
+        
+        try:
+            correction_response = await provider_service.generate_completion(
+                messages=correction_prompt,
+                provider="openai",
+                model="gpt-4"
+            )
+            
+            if correction_response and correction_response.get("message", {}).get("content"):
+                return correction_response["message"]["content"]
+                
+        except Exception as e:
+            logger.error(f"Error generating corrected response: {str(e)}")
+        
+        # Fallback - append verification notes to original
+        return f"{initial_response}\n\n**Correction Note:** {verification_text}"
+```
+
+### 4. Domain-Specific Knowledge Integration
+
+```python
+# app/services/domain_knowledge.py
+import logging
+from typing import Dict, List, Any, Optional
+import json
+import re
+import os
+import yaml
+
+logger = logging.getLogger(__name__)
+
+class DomainKnowledgeService:
+    """
+    Enhances response accuracy by integrating domain-specific knowledge.
+    """
+    
+    def __init__(self, knowledge_dir: str = "knowledge"):
+        self.knowledge_dir = knowledge_dir
+        
+        # Domain definitions
+        self.domains = {
+            "programming": {
+                "keywords": ["coding", "programming", "software", "development", "algorithm", "function"],
+                "languages": ["python", "javascript", "java", "c++", "ruby", "go", "rust", "php"]
+            },
+            "medicine": {
+                "keywords": ["medical", "health", "disease", "treatment", "diagnosis", "symptom", "patient"],
+                "specialties": ["cardiology", "neurology", "pediatrics", "oncology", "psychiatry"]
+            },
+            "finance": {
+                "keywords": ["finance", "investment", "stock", "market", "trading", "portfolio", "asset"],
+                "topics": ["stocks", "bonds", "cryptocurrency", "retirement", "taxes", "budgeting"]
+            },
+            "law": {
+                "keywords": ["legal", "law", "regulation", "compliance", "contract", "liability"],
+                "areas": ["corporate", "criminal", "civil", "constitutional", "intellectual property"]
+            },
+            "science": {
+                "keywords": ["science", "research", "experiment", "theory", "hypothesis", "evidence"],
+                "fields": ["physics", "chemistry", "biology", "astronomy", "geology", "ecology"]
+            }
+        }
+        
+        # Load domain knowledge
+        self.domain_knowledge = self._load_domain_knowledge()
+        
+        # Track query->domain mappings to optimize repeated queries
+        self.domain_cache = {}
+    
+    def _load_domain_knowledge(self) -> Dict[str, Any]:
+        """Load domain knowledge from files."""
+        knowledge = {}
+        
+        try:
+            # Create knowledge dir if it doesn't exist
+            os.makedirs(self.knowledge_dir, exist_ok=True)
+            
+            # List all domain knowledge files
+            for domain in self.domains.keys():
+                domain_path = os.path.join(self.knowledge_dir, f"{domain}.yaml")
+                
+                # Create empty file if it doesn't exist
+                if not os.path.exists(domain_path):
+                    with open(domain_path, 'w') as f:
+                        yaml.dump({
+                            "domain": domain,
+                            "concepts": {},
+                            "facts": [],
+                            "common_misconceptions": [],
+                            "best_practices": []
+                        }, f)
+                
+                # Load domain knowledge
+                try:
+                    with open(domain_path, 'r') as f:
+                        domain_data = yaml.safe_load(f)
+                        knowledge[domain] = domain_data
+                except Exception as e:
+                    logger.error(f"Error loading domain knowledge for {domain}: {str(e)}")
+                    knowledge[domain] = {
+                        "domain": domain,
+                        "concepts": {},
+                        "facts": [],
+                        "common_misconceptions": [],
+                        "best_practices": []
+                    }
+        except Exception as e:
+            logger.error(f"Error loading domain knowledge: {str(e)}")
+        
+        return knowledge
+    
+    def detect_domains(self, query: str) -> List[str]:
+        """Detect relevant domains for a query."""
+        # Check cache first
+        cache_key = hashlib.md5(query.encode()).hexdigest()
+        if cache_key in self.domain_cache:
+            return self.domain_cache[cache_key]
+        
+        query_lower = query.lower()
+        relevant_domains = []
+        
+        # Check each domain for relevance
+        for domain, definition in self.domains.items():
+            # Check domain keywords
+            keyword_match = any(keyword in query_lower for keyword in definition["keywords"])
+            
+            # Check specific domain topics
+            topic_match = False
+            for topic_category, topics in definition.items():
+                if topic_category != "keywords":
+                    if any(topic in query_lower for topic in topics):
+                        topic_match = True
+                        break
+            
+            if keyword_match or topic_match:
+                relevant_domains.append(domain)
+        
+        # Cache result
+        self.domain_cache[cache_key] = relevant_domains
+        return relevant_domains
+    
+    def get_domain_knowledge(self, domains: List[str]) -> Dict[str, Any]:
+        """Get knowledge for the specified domains."""
+        combined_knowledge = {
+            "concepts": {},
+            "facts": [],
+            "common_misconceptions": [],
+            "best_practices": []
+        }
+        
+        for domain in domains:
+            if domain in self.domain_knowledge:
+                domain_data = self.domain_knowledge[domain]
+                
+                # Merge concepts (dictionary)
+                combined_knowledge["concepts"].update(domain_data.get("concepts", {}))
+                
+                # Extend lists
+                for key in ["facts", "common_misconceptions", "best_practices"]:
+                    combined_knowledge[key].extend(domain_data.get(key, []))
+        
+        return combined_knowledge
+    
+    def format_domain_knowledge(self, knowledge: Dict[str, Any]) -> str:
+        """Format domain knowledge as a context string."""
+        if not knowledge or all(not v for v in knowledge.values()):
+            return ""
+        
+        formatted_parts = []
+        
+        # Format concepts
+        if knowledge["concepts"]:
+            concepts_list = []
+            for concept, definition in knowledge["concepts"].items():
+                concepts_list.append(f"- {concept}: {definition}")
+            
+            formatted_parts.append("Key concepts:\n" + "\n".join(concepts_list))
+        
+        # Format facts
+        if knowledge["facts"]:
+            formatted_parts.append("Important facts:\n- " + "\n- ".join(knowledge["facts"]))
+        
+        # Format misconceptions
+        if knowledge["common_misconceptions"]:
+            formatted_parts.append("Common misconceptions to avoid:\n- " + "\n- ".join(knowledge["common_misconceptions"]))
+        
+        # Format best practices
+        if knowledge["best_practices"]:
+            formatted_parts.append("Best practices:\n- " + "\n- ".join(knowledge["best_practices"]))
+        
+        return "\n\n".join(formatted_parts)
+    
+    def enhance_prompt_with_domain_knowledge(self, query: str, system_prompt: str) -> str:
+        """Enhance a system prompt with relevant domain knowledge."""
+        # Detect relevant domains
+        domains = self.detect_domains(query)
+        
+        if not domains:
+            return system_prompt
+        
+        # Get domain knowledge
+        knowledge = self.get_domain_knowledge(domains)
+        
+        # Format knowledge as context
+        knowledge_text = self.format_domain_knowledge(knowledge)
+        
+        if not knowledge_text:
+            return system_prompt
+        
+        # Add to system prompt
+        enhanced_prompt = f"{system_prompt}\n\nRelevant domain knowledge:\n{knowledge_text}"
+        
+        return enhanced_prompt
+```
+
+### 5. Dynamic Few-Shot Learning
+
+```python
+# app/services/few_shot_examples.py
+import logging
+from typing import Dict, List, Any, Optional, Tuple
+import os
+import json
+import random
+import re
+import hashlib
+
+logger = logging.getLogger(__name__)
+
+class FewShotExampleService:
+    """
+    Enhances response accuracy using dynamic few-shot learning with examples.
+    """
+    
+    def __init__(self, examples_dir: str = "examples"):
+        self.examples_dir = examples_dir
+        
+        # Ensure examples directory exists
+        os.makedirs(examples_dir, exist_ok=True)
+        
+        # Task categories for examples
+        self.task_categories = {
+            "code_generation": {
+                "keywords": ["write code", "function", "implement", "program", "algorithm"],
+                "patterns": [r"write a .* function", r"implement .* in (python|javascript|java|c\+\+)"]
+            },
+            "explanation": {
+                "keywords": ["explain", "describe", "how does", "what is", "why is"],
+                "patterns": [r"explain .* to me", r"what is the .* of", r"how does .* work"]
+            },
+            "classification": {
+                "keywords": ["classify", "categorize", "identify", "is this", "determine"],
+                "patterns": [r"is this .* or .*", r"which category", r"identify the .*"]
+            },
+            "comparison": {
+                "keywords": ["compare", "contrast", "difference", "similarities", "versus"],
+                "patterns": [r"compare .* and .*", r"what is the difference between", r".* vs .*"]
+            },
+            "summarization": {
+                "keywords": ["summarize", "summary", "brief overview", "key points"],
+                "patterns": [r"summarize .*", r"provide a summary", r"key points of"]
+            }
+        }
+        
+        # Load examples
+        self.examples = self._load_examples()
+    
+    def _load_examples(self) -> Dict[str, List[Dict[str, str]]]:
+        """Load examples from files."""
+        examples = {category: [] for category in self.task_categories.keys()}
+        
+        # Load examples for each category
+        for category in self.task_categories.keys():
+            category_file = os.path.join(self.examples_dir, f"{category}.json")
+            
+            if os.path.exists(category_file):
+                try:
+                    with open(category_file, 'r') as f:
+                        category_examples = json.load(f)
+                        examples[category] = category_examples
+                except Exception as e:
+                    logger.error(f"Error loading examples for {category}: {str(e)}")
+        
+        return examples
+    
+    def detect_task_category(self, query: str) -> Optional[str]:
+        """Detect the task category for a query."""
+        query_lower = query.lower()
+        
+        # Check each category
+        for category, definition in self.task_categories.items():
+            # Check keywords
+            if any(keyword in query_lower for keyword in definition["keywords"]):
+                return category
+            
+            # Check regex patterns
+            if any(re.search(pattern, query_lower) for pattern in definition["patterns"]):
+                return category
+        
+        return None
+    
+    def select_examples(self, 
+                      query: str, 
+                      category: Optional[str] = None, 
+                      num_examples: int = 3) -> List[Dict[str, str]]:
+        """Select the most relevant examples for a query."""
+        # Detect category if not provided
+        if not category:
+            category = self.detect_task_category(query)
+            
+        if not category or category not in self.examples or not self.examples[category]:
+            return []
+        
+        category_examples = self.examples[category]
+        
+        # If we have few examples, just return all of them (up to num_examples)
+        if len(category_examples) <= num_examples:
+            return category_examples
+        
+        # For simplicity, we're using random selection here
+        # In a production system, this would use semantic similarity or other relevance metrics
+        selected = random.sample(category_examples, min(num_examples, len(category_examples)))
+        
+        return selected
+    
+    def format_examples_for_prompt(self, examples: List[Dict[str, str]]) -> str:
+        """Format examples for inclusion in a prompt."""
+        if not examples:
+            return ""
+        
+        formatted_examples = []
+        
+        for i, example in enumerate(examples, 1):
+            query = example.get("query", "")
+            response = example.get("response", "")
+            
+            formatted = f"Example {i}:\n\nUser: {query}\n\nAssistant: {response}\n"
+            formatted_examples.append(formatted)
+        
+        return "\n".join(formatted_examples)
+    
+    def enhance_prompt_with_examples(self, 
+                                   query: str, 
+                                   system_prompt: str,
+                                   num_examples: int = 2) -> str:
+        """Enhance a system prompt with few-shot examples."""
+        # Select relevant examples
+        examples = self.select_examples(query, num_examples=num_examples)
+        
+        if not examples:
+            return system_prompt
+        
+        # Format examples
+        examples_text = self.format_examples_for_prompt(examples)
+        
+        # Add to system prompt
+        enhanced_prompt = f"{system_prompt}\n\nHere are some examples of how to respond to similar queries:\n\n{examples_text}"
+        
+        return enhanced_prompt
+    
+    def add_example(self, category: str, query: str, response: str) -> bool:
+        """Add a new example to the examples collection."""
+        if category not in self.task_categories:
+            logger.error(f"Invalid category: {category}")
+            return False
+        
+        example = {
+            "query": query,
+            "response": response,
+            "id": hashlib.md5(f"{category}:{query}".encode()).hexdigest()
+        }
+        
+        # Add to in-memory collection
+        if category not in self.examples:
+            self.examples[category] = []
+        
+        # Check if this example already exists
+        existing_ids = [e.get("id") for e in self.examples[category]]
+        if example["id"] in existing_ids:
+            return False  # Example already exists
+        
+        self.examples[category].append(example)
+        
+        # Save to file
+        try:
+            category_file = os.path.join(self.examples_dir, f"{category}.json")
+            with open(category_file, 'w') as f:
+                json.dump(self.examples[category], f, indent=2)
+            return True
+        except Exception as e:
+            logger.error(f"Error saving example: {str(e)}")
+            return False
+```
+
+## Deployment Strategies
+
+### Local Development Environment
+
+#### Setup Script for Local Deployment
+
+```bash
+#!/bin/bash
+# local_setup.sh - Set up local development environment
+
+set -e  # Exit on error
+
+# Check for required tools
+echo "Checking prerequisites..."
+command -v python3 >/dev/null 2>&1 || { echo "Python 3 is required but not installed. Aborting."; exit 1; }
+command -v pip3 >/dev/null 2>&1 || { echo "pip3 is required but not installed. Aborting."; exit 1; }
+command -v docker >/dev/null 2>&1 || { echo "Docker is required but not installed. Aborting."; exit 1; }
+command -v docker-compose >/dev/null 2>&1 || { echo "Docker Compose is required but not installed. Aborting."; exit 1; }
+
+# Create virtual environment
+echo "Creating Python virtual environment..."
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+echo "Installing Python dependencies..."
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Set up environment file
+if [ ! -f .env ]; then
+    echo "Creating .env file..."
+    cp .env.example .env
+    
+    # Prompt for OpenAI API key
+    read -p "Enter your OpenAI API key (leave blank to skip): " openai_key
+    if [ ! -z "$openai_key" ]; then
+        sed -i "s/OPENAI_API_KEY=.*/OPENAI_API_KEY=$openai_key/" .env
+    fi
+    
+    # Set environment to development
+    sed -i "s/APP_ENV=.*/APP_ENV=development/" .env
+    
+    echo ".env file created. Please review and update as needed."
+else
+    echo ".env file already exists. Skipping creation."
+fi
+
+# Check if Ollama is installed
+if ! command -v ollama >/dev/null 2>&1; then
+    echo "Ollama not found. Would you like to install it? (y/n)"
+    read install_ollama
+    
+    if [ "$install_ollama" = "y" ]; then
+        echo "Installing Ollama..."
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            # macOS
+            curl -fsSL https://ollama.com/install.sh | sh
+        else
+            # Linux
+            curl -fsSL https://ollama.com/install.sh | sh
+        fi
+    else
+        echo "Skipping Ollama installation. You will need to install it manually."
+    fi
+else
+    echo "Ollama already installed."
+fi
+
+# Pull required Ollama models
+if command -v ollama >/dev/null 2>&1; then
+    echo "Would you like to pull the recommended Ollama models? (y/n)"
+    read pull_models
+    
+    if [ "$pull_models" = "y" ]; then
+        echo "Pulling Ollama models..."
+        ollama pull llama2
+        ollama pull mistral
+        ollama pull codellama
+    fi
+fi
+
+# Start Redis for development
+echo "Starting Redis with Docker..."
+docker-compose up -d redis
+
+# Initialize database
+echo "Initializing database..."
+python scripts/init_db.py
+
+# Run tests to verify setup
+echo "Running tests to verify setup..."
+pytest tests/unit
+
+echo "Setup complete! You can now start the development server with:"
+echo "uvicorn app.main:app --reload"
+```
+
+#### Docker Compose for Local Services
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_HOST=http://ollama:11434
+      - APP_ENV=development
+      - FORCE_DEV_MODE=true
+    depends_on:
+      - redis
+      - ollama
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./ui:/app
+      - /app/node_modules
+    environment:
+      - API_URL=http://app:8000
+    depends_on:
+      - app
+    command: npm start
+
+volumes:
+  redis_data:
+  ollama_data:
+```
+
+#### Development Dockerfile
+
+```dockerfile
+# Dockerfile.dev
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gcc \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+
+# Copy application code
+COPY . .
+
+# Set development environment
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV APP_ENV=development
+
+# Make scripts executable
+RUN chmod +x scripts/*.sh
+
+# Default command
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+```
+
+#### Configuration for Local Environment
+
+```python
+# app/config/local.py
+"""Configuration for local development environment."""
+
+import os
+from typing import Dict, Any, List
+
+# API configuration
+API_HOST = "0.0.0.0"
+API_PORT = 8000
+API_RELOAD = True
+API_DEBUG = True
+
+# OpenAI configuration
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_ORG_ID = os.environ.get("OPENAI_ORG_ID", "")
+OPENAI_MODEL = "gpt-3.5-turbo"  # Default to cheaper model for development
+
+# Ollama configuration
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = "llama2"  # Default local model
+ENABLE_GPU = True
+
+# App configuration
+LOG_LEVEL = "DEBUG"
+ENABLE_CORS = True
+CORS_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+# Feature flags
+ENABLE_CACHING = True
+ENABLE_RATE_LIMITING = False  # Disable rate limiting in local development
+ENABLE_PARALLEL_PROCESSING = True
+ENABLE_RESPONSE_VERIFICATION = True
+
+# Development-specific settings
+FORCE_DEV_MODE = os.environ.get("FORCE_DEV_MODE", "false").lower() == "true"
+DEV_OPENAI_QUOTA = 100  # Maximum OpenAI API calls per day in development
+
+# Redis configuration
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+```
+
+### Production Deployment
+
+#### Kubernetes Manifests for Production
+
+```yaml
+# kubernetes/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-api
+  labels:
+    app: mcp-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mcp-api
+  template:
+    metadata:
+      labels:
+        app: mcp-api
+    spec:
+      containers:
+      - name: api
+        image: ${DOCKER_REGISTRY}/mcp-api:${IMAGE_TAG}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: APP_ENV
+          value: "production"
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: mcp-secrets
+              key: redis_url
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mcp-secrets
+              key: openai_api_key
+        - name: OLLAMA_HOST
+          value: "http://ollama-service:11434"
+        - name: MONTHLY_BUDGET
+          value: "${MONTHLY_BUDGET}"
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 15
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  labels:
+    app: ollama
+spec:
+  replicas: 1  # Start with a single replica for Ollama
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+      - name: ollama
+        image: ollama/ollama:latest
+        ports:
+        - containerPort: 11434
+        volumeMounts:
+        - mountPath: /root/.ollama
+          name: ollama-data
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 4Gi
+          limits:
+            cpu: 4000m
+            memory: 16Gi
+        # If using GPU
+        env:
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,utility"
+      volumes:
+      - name: ollama-data
+        persistentVolumeClaim:
+          claimName: ollama-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-api-service
+spec:
+  selector:
+    app: mcp-api
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama-service
+spec:
+  selector:
+    app: ollama
+  ports:
+  - port: 11434
+    targetPort: 11434
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mcp-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - api.mcpservice.com
+    secretName: mcp-tls
+  rules:
+  - host: api.mcpservice.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mcp-api-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi  # Adjust based on your models
+```
+
+#### Horizontal Pod Autoscaling (HPA)
+
+```yaml
+# kubernetes/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mcp-api-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mcp-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+```
+
+#### Deployment Script
+
+```bash
+#!/bin/bash
+# deploy.sh - Production deployment script
+
+set -e  # Exit on error
+
+# Check required environment variables
+if [ -z "$DOCKER_REGISTRY" ] || [ -z "$IMAGE_TAG" ] || [ -z "$K8S_NAMESPACE" ]; then
+    echo "Error: Required environment variables not set."
+    echo "Please set DOCKER_REGISTRY, IMAGE_TAG, and K8S_NAMESPACE."
+    exit 1
+fi
+
+# Build and push Docker image
+echo "Building and pushing Docker image..."
+docker build -t ${DOCKER_REGISTRY}/mcp-api:${IMAGE_TAG} -f Dockerfile.prod .
+docker push ${DOCKER_REGISTRY}/mcp-api:${IMAGE_TAG}
+
+# Apply Kubernetes configuration
+echo "Applying Kubernetes configuration..."
+
+# Create namespace if it doesn't exist
+kubectl get namespace ${K8S_NAMESPACE} || kubectl create namespace ${K8S_NAMESPACE}
+
+# Apply secrets
+echo "Applying secrets..."
+kubectl apply -f kubernetes/secrets.yaml -n ${K8S_NAMESPACE}
+
+# Deploy Redis if needed
+echo "Deploying Redis..."
+helm upgrade --install redis bitnami/redis \
+  --namespace ${K8S_NAMESPACE} \
+  --set auth.password=${REDIS_PASSWORD} \
+  --set master.persistence.size=8Gi
+
+# Deploy application
+echo "Deploying application..."
+# Replace variables in deployment file
+envsubst < kubernetes/deployment.yaml | kubectl apply -f - -n ${K8S_NAMESPACE}
+
+# Apply HPA
+kubectl apply -f kubernetes/hpa.yaml -n ${K8S_NAMESPACE}
+
+# Verify deployment
+echo "Verifying deployment..."
+kubectl rollout status deployment/mcp-api -n ${K8S_NAMESPACE}
+kubectl rollout status deployment/ollama -n ${K8S_NAMESPACE}
+
+# Initialize Ollama models if needed
+echo "Would you like to initialize Ollama models? (y/n)"
+read init_models
+
+if [ "$init_models" = "y" ]; then
+    echo "Initializing Ollama models..."
+    # Get pod name
+    OLLAMA_POD=$(kubectl get pods -l app=ollama -n ${K8S_NAMESPACE} -o jsonpath="{.items[0].metadata.name}")
+    
+    # Pull models
+    kubectl exec ${OLLAMA_POD} -n ${K8S_NAMESPACE} -- ollama pull llama2
+    kubectl exec ${OLLAMA_POD} -n ${K8S_NAMESPACE} -- ollama pull mistral
+    kubectl exec ${OLLAMA_POD} -n ${K8S_NAMESPACE} -- ollama pull codellama
+fi
+
+echo "Deployment complete!"
+echo "API available at: https://api.mcpservice.com"
+```
+
+#### Production Dockerfile
+
+```dockerfile
+# Dockerfile.prod
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt ./
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+
+# Final stage
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy wheels from builder stage
+COPY --from=builder /app/wheels /wheels
+RUN pip install --no-cache /wheels/*
+
+# Copy application code
+COPY app /app/app
+COPY scripts /app/scripts
+COPY alembic.ini /app/
+
+# Create non-root user
+RUN useradd -m appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# Set production environment
+ENV PYTHONPATH=/app
+ENV APP_ENV=production
+ENV PYTHONUNBUFFERED=1
+
+# Expose port
+EXPOSE 8000
+
+# Run using Gunicorn in production
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-c", "app/config/gunicorn.py", "app.main:app"]
+```
+
+#### Gunicorn Configuration for Production
+
+```python
+# app/config/gunicorn.py
+"""Gunicorn configuration for production deployment."""
+
+import multiprocessing
+import os
+
+# Bind to 0.0.0.0:8000
+bind = "0.0.0.0:8000"
+
+# Worker configuration
+workers = multiprocessing.cpu_count() * 2 + 1
+worker_class = "uvicorn.workers.UvicornWorker"
+worker_connections = 1000
+timeout = 60
+keepalive = 5
+
+# Logging
+accesslog = "-"
+errorlog = "-"
+loglevel = os.environ.get("LOG_LEVEL", "info").lower()
+
+# Security
+limit_request_line = 4094
+limit_request_fields = 100
+limit_request_field_size = 8190
+
+# Process naming
+proc_name = "mcp-api"
+```
+
+### Cloud Deployment (AWS)
+
+#### AWS CloudFormation Template
+
+```yaml
+# aws/cloudformation.yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'MCP OpenAI-Ollama Hybrid System'
+
+Parameters:
+  Environment:
+    Description: Deployment environment
+    Type: String
+    Default: Production
+    AllowedValues:
+      - Development
+      - Staging
+      - Production
+    
+  ECRRepositoryName:
+    Description: ECR Repository name
+    Type: String
+    Default: mcp-api
+  
+  VpcId:
+    Description: VPC ID
+    Type: AWS::EC2::VPC::Id
+  
+  SubnetIds:
+    Description: Subnet IDs for the ECS tasks
+    Type: List<AWS::EC2::Subnet::Id>
+  
+  OllamaInstanceType:
+    Description: EC2 instance type for Ollama
+    Type: String
+    Default: g4dn.xlarge
+    AllowedValues:
+      - g4dn.xlarge
+      - g5.xlarge
+      - p3.2xlarge
+      - c5.2xlarge  # CPU-only option
+  
+  ApiInstanceCount:
+    Description: Number of API instances
+    Type: Number
+    Default: 2
+    MinValue: 1
+    MaxValue: 10
+
+Resources:
+  # ECR Repository
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref ECRRepositoryName
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep only the 10 most recent images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+  # ElastiCache Redis
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Redis cluster
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !GetAtt APISecurityGroup.GroupId
+
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for Redis
+      SubnetIds: !Ref SubnetIds
+
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      Engine: redis
+      CacheNodeType: cache.t3.medium
+      NumCacheNodes: 1
+      VpcSecurityGroupIds:
+        - !GetAtt RedisSecurityGroup.GroupId
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      AutoMinorVersionUpgrade: true
+
+  # Ollama EC2 Instance
+  OllamaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Ollama EC2 instance
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 11434
+          ToPort: 11434
+          SourceSecurityGroupId: !GetAtt APISecurityGroup.GroupId
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0  # Restrict this in production
+
+  OllamaInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  OllamaInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref OllamaInstanceRole
+
+  OllamaEBSVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Size: 100
+      VolumeType: gp3
+      Encrypted: true
+      Tags:
+        - Key: Name
+          Value: OllamaVolume
+
+  OllamaInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref OllamaInstanceType
+      ImageId: ami-0261755bbcb8c4a84  # Amazon Linux 2 AMI - update as needed
+      SecurityGroupIds:
+        - !GetAtt OllamaSecurityGroup.GroupId
+      SubnetId: !Select [0, !Ref SubnetIds]
+      IamInstanceProfile: !Ref OllamaInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Install Docker
+          amazon-linux-extras install docker -y
+          systemctl start docker
+          systemctl enable docker
+          
+          # Install Ollama
+          curl -fsSL https://ollama.com/install.sh | sh
+          
+          # Run Ollama in Docker
+          docker run -d --name ollama \
+            -p 11434:11434 \
+            -v ollama:/root/.ollama \
+            ollama/ollama
+          
+          # Pull models
+          docker exec ollama ollama pull llama2
+          docker exec ollama ollama pull mistral
+          docker exec ollama ollama pull codellama
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-ollama"
+
+  OllamaVolumeAttachment:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref OllamaInstance
+      VolumeId: !Ref OllamaEBSVolume
+      Device: /dev/sdf
+
+  # API ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${AWS::StackName}-cluster"
+      CapacityProviders:
+        - FARGATE
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+
+  APISecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for API ECS tasks
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0  # Restrict in production
+
+  # ECS Task Definition
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
+  APITaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${AWS::StackName}-api"
+      Cpu: '1024'
+      Memory: '2048'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskRole.Arn
+      ContainerDefinitions:
+        - Name: api
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepositoryName}:latest"
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8000
+          Environment:
+            - Name: REDIS_URL
+              Value: !Sub "redis://${RedisCluster.RedisEndpoint.Address}:${RedisCluster.RedisEndpoint.Port}/0"
+            - Name: OLLAMA_HOST
+              Value: !Sub "http://${OllamaInstance.PrivateIp}:11434"
+            - Name: APP_ENV
+              Value: !Ref Environment
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref APILogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - curl -f http://localhost:8000/api/health || exit 1
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+
+  APILogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${AWS::StackName}-api"
+      RetentionInDays: 7
+
+  # ECS Service
+  APIService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub "${AWS::StackName}-api"
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref APITaskDefinition
+      DesiredCount: !Ref ApiInstanceCount
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !GetAtt APISecurityGroup.GroupId
+          Subnets: !Ref SubnetIds
+      LoadBalancers:
+        - TargetGroupArn: !Ref ALBTargetGroup
+          ContainerName: api
+          ContainerPort: 8000
+    DependsOn: ALBListener
+
+  # Application Load Balancer
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${AWS::StackName}-alb"
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups:
+        - !GetAtt ALBSecurityGroup.GroupId
+      Subnets: !Ref SubnetIds
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${AWS::StackName}-target-group"
+      Port: 8000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VpcId
+      HealthCheckPath: /api/health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+
+Outputs:
+  APIEndpoint:
+    Description: URL for API
+    Value: !Sub "http://${ALB.DNSName}"
+  
+  OllamaEndpoint:
+    Description: Ollama Server Private IP
+    Value: !GetAtt OllamaInstance.PrivateIp
+  
+  ECRRepository:
+    Description: ECR Repository URL
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepositoryName}"
+  
+  RedisEndpoint:
+    Description: Redis Endpoint
+    Value: !Sub "${RedisCluster.RedisEndpoint.Address}:${RedisCluster.RedisEndpoint.Port}"
+```
+
+#### AWS Deployment Script
+
+```bash
+#!/bin/bash
+# aws_deploy.sh - AWS deployment script
+
+set -e  # Exit on error
+
+# Check required AWS CLI
+if ! command -v aws &> /dev/null; then
+    echo "AWS CLI is required but not installed. Aborting."
+    exit 1
+fi
+
+# AWS configuration
+AWS_REGION="us-east-1"
+STACK_NAME="mcp-hybrid-system"
+CFN_TEMPLATE="aws/cloudformation.yaml"
+IMAGE_TAG=$(git rev-parse --short HEAD)
+
+# Check if stack exists
+if aws cloudformation describe-stacks --stack-name $STACK_NAME --region $AWS_REGION &> /dev/null; then
+    STACK_ACTION="update"
+else
+    STACK_ACTION="create"
+fi
+
+# Deploy CloudFormation stack
+if [ "$STACK_ACTION" = "create" ]; then
+    echo "Creating CloudFormation stack..."
+    aws cloudformation create-stack \
+        --stack-name $STACK_NAME \
+        --template-body file://$CFN_TEMPLATE \
+        --capabilities CAPABILITY_IAM \
+        --parameters \
+            ParameterKey=Environment,ParameterValue=Production \
+            ParameterKey=OllamaInstanceType,ParameterValue=g4dn.xlarge \
+            ParameterKey=ApiInstanceCount,ParameterValue=2 \
+        --region $AWS_REGION
+    
+    # Wait for stack creation
+    echo "Waiting for stack creation to complete..."
+    aws cloudformation wait stack-create-complete \
+        --stack-name $STACK_NAME \
+        --region $AWS_REGION
+else
+    echo "Updating CloudFormation stack..."
+    aws cloudformation update-stack \
+        --stack-name $STACK_NAME \
+        --template-body file://$CFN_TEMPLATE \
+        --capabilities CAPABILITY_IAM \
+        --parameters \
+            ParameterKey=Environment,ParameterValue=Production \
+            ParameterKey=OllamaInstanceType,ParameterValue=g4dn.xlarge \
+            ParameterKey=ApiInstanceCount,ParameterValue=2 \
+        --region $AWS_REGION
+    
+    # Wait for stack update
+    echo "Waiting for stack update to complete..."
+    aws cloudformation wait stack-update-complete \
+        --stack-name $STACK_NAME \
+        --region $AWS_REGION
+fi
+
+# Get stack outputs
+echo "Getting stack outputs..."
+ECR_REPOSITORY=$(aws cloudformation describe-stacks \
+    --stack-name $STACK_NAME \
+    --query "Stacks[0].Outputs[?OutputKey=='ECRRepository'].OutputValue" \
+    --output text \
+    --region $AWS_REGION)
+
+API_ENDPOINT=$(aws cloudformation describe-stacks \
+    --stack-name $STACK_NAME \
+    --query "Stacks[0].Outputs[?OutputKey=='APIEndpoint'].OutputValue" \
+    --output text \
+    --region $AWS_REGION)
+
+# Build and push Docker image
+echo "Building and pushing Docker image to ECR..."
+# Login to ECR
+aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY
+
+# Build and push
+docker build -t $ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REPOSITORY:latest -f Dockerfile.prod .
+docker push $ECR_REPOSITORY:$IMAGE_TAG
+docker push $ECR_REPOSITORY:latest
+
+# Update ECS service to force deployment
+echo "Updating ECS service..."
+ECS_CLUSTER="${STACK_NAME}-cluster"
+ECS_SERVICE="${STACK_NAME}-api"
+
+aws ecs update-service \
+    --cluster $ECS_CLUSTER \
+    --service $ECS_SERVICE \
+    --force-new-deployment \
+    --region $AWS_REGION
+
+echo "Deployment complete!"
+echo "API Endpoint: $API_ENDPOINT"
+```
+
+# Optimization and Deployment Strategies for OpenAI-Ollama Hybrid AI System (Continued)
+
+## Monitoring and Observability Configuration
+
+### Prometheus and Grafana Setup for Metrics
+
+```yaml
+# monitoring/prometheus-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: 'mcp-api'
+        metrics_path: /metrics
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: mcp-api
+            action: keep
+
+      - job_name: 'ollama'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['ollama-service:11434']
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ['alertmanager:9093']
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.42.0
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/prometheus
+            - name: prometheus-data
+              mountPath: /prometheus
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+            - "--web.console.templates=/usr/share/prometheus/consoles"
+            - "--web.enable-lifecycle"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: prometheus-config
+        - name: prometheus-data
+          persistentVolumeClaim:
+            claimName: prometheus-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - port: 9090
+      targetPort: 9090
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:9.4.7
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secrets
+                  key: admin_user
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secrets
+                  key: admin_password
+      volumes:
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: grafana-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-service
+spec:
+  selector:
+    app: grafana
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+```
+
+### Grafana Dashboard Configuration
+
+```json
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "panels": [
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "hiddenSeries": false,
+      "id": 2,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.2.0",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "rate(api_requests_total[5m])",
+          "interval": "",
+          "legendFormat": "Requests ({{provider}})",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Request Rate by Provider",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "Requests/sec",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "hiddenSeries": false,
+      "id": 3,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.2.0",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "api_response_time_seconds{quantile=\"0.5\"}",
+          "interval": "",
+          "legendFormat": "50th % ({{provider}})",
+          "refId": "A"
+        },
+        {
+          "expr": "api_response_time_seconds{quantile=\"0.9\"}",
+          "interval": "",
+          "legendFormat": "90th % ({{provider}})",
+          "refId": "B"
+        },
+        {
+          "expr": "api_response_time_seconds{quantile=\"0.99\"}",
+          "interval": "",
+          "legendFormat": "99th % ({{provider}})",
+          "refId": "C"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Response Time by Provider",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "s",
+          "label": "Response Time",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.2.0",
+      "targets": [
+        {
+          "expr": "sum(api_requests_total{provider=\"openai\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "OpenAI Total Requests",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.2.0",
+      "targets": [
+        {
+          "expr": "sum(api_requests_total{provider=\"ollama\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Ollama Total Requests",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.2.0",
+      "targets": [
+        {
+          "expr": "sum(api_openai_cost_total)",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "OpenAI Cost",
+      "type": "stat"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "hiddenSeries": false,
+      "id": 7,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.2.0",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "rate(api_token_usage_total{type=\"prompt\"}[5m])",
+          "interval": "",
+          "legendFormat": "Prompt ({{provider}})",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(api_token_usage_total{type=\"completion\"}[5m])",
+          "interval": "",
+          "legendFormat": "Completion ({{provider}})",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Token Usage Rate by Type",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "Tokens/sec",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "hiddenSeries": false,
+      "id": 8,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.2.0",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "rate(api_cache_hits_total[5m])",
+          "interval": "",
+          "legendFormat": "Cache Hits",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(api_cache_misses_total[5m])",
+          "interval": "",
+          "legendFormat": "Cache Misses",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Cache Performance",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "Rate",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 26,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ]
+  },
+  "timezone": "",
+  "title": "MCP Hybrid System Dashboard",
+  "uid": "mcp-dashboard",
+  "version": 1
+}
+```
+
+### Implementing Metrics Collection in API
+
+```python
+# app/middleware/metrics.py
+from fastapi import Request
+import time
+from prometheus_client import Counter, Histogram, Gauge
+import logging
+
+# Initialize metrics
+REQUEST_COUNT = Counter(
+    'api_requests_total', 
+    'Total count of API requests',
+    ['method', 'endpoint', 'provider', 'model', 'status']
+)
+
+RESPONSE_TIME = Histogram(
+    'api_response_time_seconds',
+    'Response time in seconds',
+    ['method', 'endpoint', 'provider']
+)
+
+TOKEN_USAGE = Counter(
+    'api_token_usage_total',
+    'Total token usage',
+    ['provider', 'model', 'type']  # type: prompt or completion
+)
+
+OPENAI_COST = Counter(
+    'api_openai_cost_total',
+    'Total OpenAI API cost in USD',
+    ['model']
+)
+
+ACTIVE_REQUESTS = Gauge(
+    'api_active_requests',
+    'Number of active requests',
+    ['method']
+)
+
+CACHE_HITS = Counter(
+    'api_cache_hits_total',
+    'Total cache hits',
+    ['cache_type']  # exact or semantic
+)
+
+CACHE_MISSES = Counter(
+    'api_cache_misses_total',
+    'Total cache misses',
+    []
+)
+
+logger = logging.getLogger(__name__)
+
+async def metrics_middleware(request: Request, call_next):
+    """Middleware to collect metrics for API requests."""
+    # Track active requests
+    ACTIVE_REQUESTS.labels(method=request.method).inc()
+    
+    # Start timing
+    start_time = time.time()
+    
+    # Default status code
+    status_code = 500
+    provider = "unknown"
+    model = "unknown"
+    
+    try:
+        # Process the request
+        response = await call_next(request)
+        status_code = response.status_code
+        
+        # Try to get provider and model from response headers if available
+        provider = response.headers.get("X-Provider", "unknown")
+        model = response.headers.get("X-Model", "unknown")
+        
+        return response
+    except Exception as e:
+        logger.exception("Unhandled exception in request")
+        raise
+    finally:
+        # Calculate response time
+        response_time = time.time() - start_time
+        
+        # Record metrics
+        REQUEST_COUNT.labels(
+            method=request.method,
+            endpoint=request.url.path,
+            provider=provider,
+            model=model,
+            status=status_code
+        ).inc()
+        
+        RESPONSE_TIME.labels(
+            method=request.method,
+            endpoint=request.url.path,
+            provider=provider
+        ).observe(response_time)
+        
+        # Decrement active requests
+        ACTIVE_REQUESTS.labels(method=request.method).dec()
+```
+
+## Scaling Strategies
+
+### Optimizing Ollama Scaling for High Loads
+
+```python
+# app/services/ollama_scaling.py
+import logging
+import asyncio
+import time
+from typing import Dict, List, Any, Optional
+import random
+import httpx
+
+logger = logging.getLogger(__name__)
+
+class OllamaScalingService:
+    """
+    Manages load balancing and scaling for multiple Ollama instances.
+    """
+    
+    def __init__(self):
+        self.ollama_instances = []
+        self.instance_status = {}
+        self.model_availability = {}
+        self.health_check_interval = 60  # seconds
+        self.enable_scaling = False
+        self.min_instances = 1
+        self.max_instances = 5
+        self.health_check_task = None
+    
+    async def initialize(self, instances: List[str]):
+        """Initialize the service with a list of Ollama instances."""
+        self.ollama_instances = instances
+        self.instance_status = {instance: False for instance in instances}
+        self.model_availability = {instance: [] for instance in instances}
+        
+        # Start health checking
+        self.health_check_task = asyncio.create_task(self._health_check_loop())
+        
+        # Perform initial health check
+        await self._check_all_instances()
+        
+        logger.info(f"Initialized Ollama scaling with {len(instances)} instances")
+    
+    async def shutdown(self):
+        """Shutdown the service."""
+        if self.health_check_task:
+            self.health_check_task.cancel()
+            try:
+                await self.health_check_task
+            except asyncio.CancelledError:
+                pass
+    
+    async def _health_check_loop(self):
+        """Periodically check health of all instances."""
+        while True:
+            try:
+                await self._check_all_instances()
+                await asyncio.sleep(self.health_check_interval)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in health check loop: {str(e)}")
+                await asyncio.sleep(5)  # Shorter retry on error
+    
+    async def _check_all_instances(self):
+        """Check health and model availability for all instances."""
+        tasks = []
+        for instance in self.ollama_instances:
+            tasks.append(self._check_instance(instance))
+        
+        # Run all checks in parallel
+        await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Log status
+        healthy_count = sum(1 for status in self.instance_status.values() if status)
+        logger.debug(f"Ollama health check: {healthy_count}/{len(self.ollama_instances)} instances healthy")
+    
+    async def _check_instance(self, instance: str):
+        """Check health and model availability for a single instance."""
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{instance}/api/version")
+                
+                if response.status_code == 200:
+                    # Instance is healthy
+                    self.instance_status[instance] = True
+                    
+                    # Check available models
+                    models_response = await client.get(f"{instance}/api/tags")
+                    if models_response.status_code == 200:
+                        data = models_response.json()
+                        models = [model["name"] for model in data.get("models", [])]
+                        self.model_availability[instance] = models
+                else:
+                    self.instance_status[instance] = False
+        except Exception as e:
+            logger.warning(f"Health check failed for {instance}: {str(e)}")
+            self.instance_status[instance] = False
+    
+    def get_instance_for_model(self, model: str) -> Optional[str]:
+        """Get the best instance for a specific model."""
+        # Filter to healthy instances that have the model
+        candidates = [
+            instance for instance, status in self.instance_status.items()
+            if status and model in self.model_availability.get(instance, [])
+        ]
+        
+        if not candidates:
+            return None
+        
+        # Use random selection for basic load balancing
+        # A more sophisticated version would track load, response times, etc.
+        return random.choice(candidates)
+    
+    def get_healthy_instance(self) -> Optional[str]:
+        """Get any healthy instance."""
+        candidates = [
+            instance for instance, status in self.instance_status.items()
+            if status
+        ]
+        
+        if not candidates:
+            return None
+            
+        return random.choice(candidates)
+    
+    async def ensure_model_availability(self, model: str) -> bool:
+        """
+        Ensure at least one instance has the required model.
+        Returns True if model is available or successfully pulled.
+        """
+        # Check if any instance already has this model
+        for instance, models in self.model_availability.items():
+            if self.instance_status.get(instance, False) and model in models:
+                return True
+        
+        # Try to pull the model on a healthy instance
+        instance = self.get_healthy_instance()
+        if not instance:
+            logger.error(f"No healthy Ollama instances available to pull model {model}")
+            return False
+        
+        # Try to pull the model
+        try:
+            async with httpx.AsyncClient(timeout=300.0) as client:  # Longer timeout for model pull
+                response = await client.post(
+                    f"{instance}/api/pull",
+                    json={"name": model}
+                )
+                
+                if response.status_code == 200:
+                    logger.info(f"Successfully pulled model {model} on {instance}")
+                    # Update model availability
+                    if instance in self.model_availability:
+                        self.model_availability[instance].append(model)
+                    return True
+                else:
+                    logger.error(f"Failed to pull model {model} on {instance}: {response.text}")
+                    return False
+        except Exception as e:
+            logger.error(f"Error pulling model {model} on {instance}: {str(e)}")
+            return False
+```
+
+### Autoscaling Configuration for Cloud Deployments
+
+```yaml
+# kubernetes/autoscaler-config.yaml
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: mcp-api-vpa
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: mcp-api
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: '*'
+        minAllowed:
+          cpu: 250m
+          memory: 256Mi
+        maxAllowed:
+          cpu: 2000m
+          memory: 4Gi
+        controlledResources: ["cpu", "memory"]
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: mcp-api-scaler
+spec:
+  scaleTargetRef:
+    name: mcp-api
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  pollingInterval: 15
+  cooldownPeriod: 300
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus-service:9090
+      metricName: api_active_requests
+      threshold: '10'
+      query: sum(api_active_requests)
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus-service:9090
+      metricName: api_response_time_p90
+      threshold: '2.0'
+      query: histogram_quantile(0.9, sum(rate(api_response_time_seconds_bucket[2m])) by (le))
+```
+
+## Cost Optimization - Monthly Budget Tracking
+
+```python
+# app/services/budget_service.py
+import logging
+import time
+from datetime import datetime, timedelta
+import aioredis
+import json
+from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
+
+class BudgetService:
+    """
+    Manages API budget tracking and quota enforcement.
+    """
+    
+    def __init__(self, redis_url: str):
+        self.redis = None
+        self.redis_url = redis_url
+        self.monthly_budget = 0.0
+        self.daily_budget = 0.0
+        self.alert_threshold = 0.8  # Alert at 80% of budget
+        self.budget_lock_key = "budget:lock"
+        self.last_reset_check = 0
+    
+    async def initialize(self, monthly_budget: float = 0.0):
+        """Initialize the budget service."""
+        self.redis = await aioredis.create_redis_pool(self.redis_url)
+        self.monthly_budget = monthly_budget
+        self.daily_budget = monthly_budget / 30 if monthly_budget > 0 else 0
+        
+        # Initialize monthly budget in Redis if not already set
+        if not await self.redis.exists("budget:monthly:total"):
+            await self.redis.set("budget:monthly:total", str(monthly_budget))
+        
+        # Initialize current usage if not already set
+        if not await self.redis.exists("budget:monthly:used"):
+            await self.redis.set("budget:monthly:used", "0.0")
+        
+        # Set the reset day (1st of month)
+        if not await self.redis.exists("budget:reset_day"):
+            await self.redis.set("budget:reset_day", "1")
+        
+        # Check if we need to reset the budget
+        await self._check_budget_reset()
+        
+        logger.info(f"Budget service initialized with monthly budget: ${monthly_budget:.2f}")
+    
+    async def close(self):
+        """Close the Redis connection."""
+        if self.redis:
+            self.redis.close()
+            await self.redis.wait_closed()
+    
+    async def _check_budget_reset(self):
+        """Check if the budget needs to be reset (new month)."""
+        now = time.time()
+        # Only check once per hour to avoid excessive checks
+        if now - self.last_reset_check < 3600:
+            return
+            
+        self.last_reset_check = now
+        
+        try:
+            # Try to acquire lock to avoid multiple resets
+            lock = await self.redis.set(
+                self.budget_lock_key, "1", 
+                expire=60, exist="SET_IF_NOT_EXIST"
+            )
+            
+            if not lock:
+                return  # Another process is handling reset
+            
+            # Get the reset day (default to 1st of month)
+            reset_day = int(await self.redis.get("budget:reset_day") or "1")
+            
+            # Get last reset timestamp
+            last_reset = float(await self.redis.get("budget:last_reset") or "0")
+            
+            # Check if we're in a new month since last reset
+            last_reset_date = datetime.fromtimestamp(last_reset)
+            now_date = datetime.now()
+            
+            # If it's a new month and we've passed the reset day
+            if (now_date.year > last_reset_date.year or 
+                (now_date.year == last_reset_date.year and now_date.month > last_reset_date.month)) and \
+                now_date.day >= reset_day:
+                
+                # Reset monthly usage
+                await self.redis.set("budget:monthly:used", "0.0")
+                
+                # Update last reset timestamp
+                await self.redis.set("budget:last_reset", str(now))
+                
+                # Log the reset
+                logger.info("Monthly budget reset performed")
+                
+                # Archive previous month's usage for reporting
+                prev_month = last_reset_date.strftime("%Y-%m")
+                prev_usage = await self.redis.get("budget:monthly:used") or "0.0"
+                await self.redis.set(f"budget:archive:{prev_month}", prev_usage)
+        finally:
+            # Release lock
+            await self.redis.delete(self.budget_lock_key)
+    
+    async def record_usage(self, cost: float, provider: str, model: str):
+        """Record API usage cost."""
+        if cost <= 0:
+            return
+            
+        # Only track costs for OpenAI
+        if provider != "openai":
+            return
+        
+        # Check if we need to reset first
+        await self._check_budget_reset()
+        
+        # Update monthly usage
+        await self.redis.incrbyfloat("budget:monthly:used", cost)
+        
+        # Update model-specific usage
+        await self.redis.incrbyfloat(f"budget:model:{model}", cost)
+        
+        # Update daily usage
+        today = datetime.now().strftime("%Y-%m-%d")
+        await self.redis.incrbyfloat(f"budget:daily:{today}", cost)
+        
+        # Log high-cost operations
+        if cost > 0.1:  # Log individual requests that cost more than 10 cents
+            logger.info(f"High-cost API request: ${cost:.4f} for {provider}:{model}")
+            
+        # Check if we've exceeded the alert threshold
+        usage = float(await self.redis.get("budget:monthly:used") or "0")
+        budget = float(await self.redis.get("budget:monthly:total") or "0")
+        
+        if budget > 0 and usage >= budget * self.alert_threshold:
+            # Check if we've already alerted for this threshold
+            alerted = await self.redis.get(f"budget:alerted:{int(self.alert_threshold * 100)}")
+            
+            if not alerted:
+                percentage = (usage / budget) * 100
+                logger.warning(f"Budget alert: Used ${usage:.2f} of ${budget:.2f} ({percentage:.1f}%)")
+                
+                # Mark as alerted for this threshold
+                await self.redis.set(
+                    f"budget:alerted:{int(self.alert_threshold * 100)}", "1",
+                    expire=86400  # Expire after 1 day
+                )
+    
+    async def check_budget_available(self, estimated_cost: float) -> bool:
+        """
+        Check if there's enough budget for an estimated operation.
+        Returns True if operation is allowed, False if it would exceed budget.
+        """
+        if estimated_cost <= 0:
+            return True
+            
+        if self.monthly_budget <= 0:
+            return True  # No budget constraints
+        
+        # Get current usage
+        usage = float(await self.redis.get("budget:monthly:used") or "0")
+        budget = float(await self.redis.get("budget:monthly:total") or "0")
+        
+        # Check if operation would exceed budget
+        return (usage + estimated_cost) <= budget
+    
+    async def get_usage_stats(self) -> Dict[str, Any]:
+        """Get current budget usage statistics."""
+        usage = float(await self.redis.get("budget:monthly:used") or "0")
+        budget = float(await self.redis.get("budget:monthly:total") or "0")
+        
+        # Get daily usage for the last 30 days
+        daily_usage = {}
+        today = datetime.now()
+        
+        for i in range(30):
+            date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
+            day_usage = float(await self.redis.get(f"budget:daily:{date}") or "0")
+            daily_usage[date] = day_usage
+        
+        # Get usage by model
+        model_keys = await self.redis.keys("budget:model:*")
+        model_usage = {}
+        
+        for key in model_keys:
+            model = key.decode('utf-8').replace("budget:model:", "")
+            model_cost = float(await self.redis.get(key) or "0")
+            model_usage[model] = model_cost
+        
+        # Calculate percentage used
+        percentage_used = (usage / budget) * 100 if budget > 0 else 0
+        
+        return {
+            "current_usage": usage,
+            "monthly_budget": budget,
+            "percentage_used": percentage_used,
+            "daily_usage": daily_usage,
+            "model_usage": model_usage,
+            "remaining_budget": budget - usage if budget > 0 else 0
+        }
+```
+
+## Conclusion
+
+The optimization and deployment strategies outlined in this document provide a comprehensive framework for implementing an efficient, cost-effective, and highly accurate hybrid AI system that leverages both OpenAI's cloud capabilities and Ollama's local inference.
+
+Key aspects of this implementation include:
+
+1. **Performance Optimization**:
+   - Query routing optimization based on complexity analysis
+   - Semantic response caching for frequent queries
+   - Parallel processing for complex queries
+   - Dynamic batching for high-load scenarios
+   - Model-specific prompt optimization
+
+2. **Cost Reduction**:
+   - Intelligent token usage optimization
+   - Tiered model selection based on task requirements
+   - Local model prioritization for development
+   - Request batching and rate limiting
+   - Memory and context compression
+
+3. **Response Accuracy**:
+   - Advanced prompt templating for different scenarios
+   - Chain-of-thought reasoning for complex queries
+   - Self-verification and error correction
+   - Domain-specific knowledge integration
+   - Dynamic few-shot learning with examples
+
+4. **Deployment Options**:
+   - Local development environment with Docker Compose
+   - Production Kubernetes deployment with autoscaling
+   - AWS cloud deployment with CloudFormation
+   - Comprehensive monitoring with Prometheus and Grafana
+   - Budget tracking and cost optimization
+
+These strategies work in concert to create a system that intelligently balances the tradeoffs between performance, cost, and accuracy, adapting to specific requirements and constraints in different deployment scenarios.
+
+By implementing this hybrid approach, organizations can significantly reduce API costs while maintaining high quality responses, with the added benefits of enhanced privacy for sensitive data and reduced dependency on external services. The local inference capabilities also provide resilience against API outages and rate limiting, ensuring consistent service availability.
+
+
