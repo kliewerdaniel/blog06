@@ -14614,3 +14614,1970 @@ These strategies work in concert to create a system that intelligently balances 
 By implementing this hybrid approach, organizations can significantly reduce API costs while maintaining high quality responses, with the added benefits of enhanced privacy for sensitive data and reduced dependency on external services. The local inference capabilities also provide resilience against API outages and rate limiting, ensuring consistent service availability.
 
 
+# MCP (Modern Computational Paradigm) System
+
+## Comprehensive Documentation
+
+This documentation provides a complete guide to understanding, installing, configuring, and using the MCP system - a hybrid architecture that integrates OpenAI's API capabilities with Ollama's local inference to create an optimized, cost-effective AI solution.
+
+---
+
+# Table of Contents
+
+1. [Introduction](#introduction)
+2. [System Architecture](#system-architecture)
+3. [Installation Guide](#installation-guide)
+   - [Prerequisites](#prerequisites)
+   - [Local Development Setup](#local-development-setup)
+   - [Docker Deployment](#docker-deployment)
+   - [Kubernetes Deployment](#kubernetes-deployment)
+   - [AWS Deployment](#aws-deployment)
+4. [Configuration](#configuration)
+   - [Environment Variables](#environment-variables)
+   - [Advanced Configuration](#advanced-configuration)
+   - [Model Selection](#model-selection)
+5. [API Reference](#api-reference)
+   - [Authentication](#authentication)
+   - [Chat Endpoints](#chat-endpoints)
+   - [Agent Endpoints](#agent-endpoints)
+   - [Model Management Endpoints](#model-management-endpoints)
+   - [System Endpoints](#system-endpoints)
+6. [Usage Examples](#usage-examples)
+   - [Basic Chat Interaction](#basic-chat-interaction)
+   - [Working with Agents](#working-with-agents)
+   - [Customizing Model Selection](#customizing-model-selection)
+   - [Tool Integration](#tool-integration)
+7. [Performance Optimization](#performance-optimization)
+   - [Caching Strategies](#caching-strategies)
+   - [Query Optimization](#query-optimization)
+   - [Parallel Processing](#parallel-processing)
+8. [Cost Optimization](#cost-optimization)
+   - [Budget Management](#budget-management)
+   - [Provider Selection](#provider-selection)
+   - [Token Optimization](#token-optimization)
+9. [Monitoring and Observability](#monitoring-and-observability)
+   - [Metrics Overview](#metrics-overview)
+   - [Grafana Dashboard](#grafana-dashboard)
+   - [Alerting](#alerting)
+10. [Troubleshooting](#troubleshooting)
+    - [Common Issues](#common-issues)
+    - [Diagnostics](#diagnostics)
+    - [Log Management](#log-management)
+11. [Contributing](#contributing)
+12. [License](#license)
+
+---
+
+# README.md
+
+```markdown
+# MCP - Modern Computational Paradigm
+
+![MCP Status](https://img.shields.io/badge/status-stable-green)
+![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
+![License MIT](https://img.shields.io/badge/license-MIT-green.svg)
+
+MCP is a hybrid AI system that intelligently integrates OpenAI's cloud capabilities with Ollama's local inference. This architecture optimizes for cost, performance, and privacy while maintaining response quality.
+
+## Key Features
+
+- **Intelligent Query Routing**: Automatically selects between OpenAI and Ollama based on query complexity, privacy requirements, and performance needs
+- **Advanced Agent Framework**: Configurable AI agents with specialized capabilities
+- **Cost Optimization**: Reduces API costs by up to 70% through local model usage, caching, and token optimization
+- **Privacy Control**: Keeps sensitive information local when appropriate
+- **Performance Optimization**: Parallel processing, response caching, and dynamic batching for high throughput
+- **Comprehensive Monitoring**: Built-in metrics and observability
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.11+
+- Docker and Docker Compose (for containerized deployment)
+- Ollama (for local model inference)
+- OpenAI API key
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/mcp.git
+   cd mcp
+   ```
+
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+5. Start Ollama (if not already running):
+   ```bash
+   ollama serve
+   ```
+
+6. Start the application:
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
+The API will be available at http://localhost:8000.
+
+### Docker Deployment
+
+For containerized deployment:
+
+```bash
+docker-compose up -d
+```
+
+## Documentation
+
+For complete documentation, see:
+- [Installation Guide](docs/installation.md)
+- [API Reference](docs/api-reference.md)
+- [Configuration Guide](docs/configuration.md)
+- [Troubleshooting](docs/troubleshooting.md)
+
+## Architecture
+
+MCP uses a sophisticated routing architecture to determine the optimal inference provider for each request:
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────┐
+│                 │     │                  │     │             │
+│  Client Request │────▶│ Routing Decision │────▶│ OpenAI API  │
+│                 │     │                  │     │             │
+└─────────────────┘     └──────────────────┘     └─────────────┘
+                                │
+                                │
+                                ▼
+                        ┌─────────────┐
+                        │             │
+                        │  Ollama API │
+                        │             │
+                        └─────────────┘
+```
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+```
+
+---
+
+# Installation Guide
+
+## Prerequisites
+
+Before installing the MCP system, ensure your environment meets the following requirements:
+
+### System Requirements
+
+- **Operating System**: Linux (recommended), macOS, or Windows
+- **CPU**: 4+ cores recommended
+- **RAM**: Minimum 8GB, 16GB+ recommended
+- **Disk Space**: 10GB minimum for installation, 50GB+ recommended for model storage
+- **GPU**: Optional but recommended for Ollama (NVIDIA with CUDA support)
+
+### Software Requirements
+
+- **Python**: Version 3.11 or higher
+- **Docker**: Version 20.10 or higher (for containerized deployment)
+- **Docker Compose**: Version 2.0 or higher
+- **Kubernetes**: Version 1.21+ (for Kubernetes deployment)
+- **Ollama**: Latest version (for local model inference)
+- **Redis**: Version 6.0+ (for caching and rate limiting)
+
+### Required API Keys
+
+- **OpenAI API Key**: Register at [OpenAI Platform](https://platform.openai.com/)
+
+## Local Development Setup
+
+Follow these steps to set up a local development environment:
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/yourusername/mcp.git
+cd mcp
+```
+
+### 2. Set Up Virtual Environment
+
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Linux/macOS:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install -r requirements-dev.txt  # For development tools
+```
+
+### 4. Install and Configure Ollama
+
+```bash
+# macOS (using Homebrew)
+brew install ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Start Ollama service
+ollama serve
+```
+
+### 5. Pull Required Models
+
+```bash
+# Pull basic models
+ollama pull llama2
+ollama pull mistral
+ollama pull codellama
+```
+
+### 6. Set Up Environment Variables
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+
+# Edit the file with your configuration
+# At minimum, set OPENAI_API_KEY
+nano .env
+```
+
+### 7. Initialize Local Services
+
+```bash
+# Start Redis using Docker
+docker-compose up -d redis
+
+# Initialize database (if applicable)
+python scripts/init_db.py
+```
+
+### 8. Start Development Server
+
+```bash
+# Start with auto-reload for development
+uvicorn app.main:app --reload --port 8000
+```
+
+### 9. Verify Installation
+
+Open your browser and navigate to:
+- API documentation: http://localhost:8000/docs
+- Health check: http://localhost:8000/api/health
+
+## Docker Deployment
+
+For a containerized deployment using Docker Compose:
+
+### 1. Ensure Docker and Docker Compose are Installed
+
+```bash
+# Verify installation
+docker --version
+docker-compose --version
+```
+
+### 2. Configure Environment Variables
+
+```bash
+# Copy and edit environment variables
+cp .env.example .env
+nano .env
+```
+
+### 3. Start Services with Docker Compose
+
+```bash
+# Build and start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+The application will be available at http://localhost:8000.
+
+### 4. Stopping the Services
+
+```bash
+docker-compose down
+```
+
+## Kubernetes Deployment
+
+For production deployment on Kubernetes:
+
+### 1. Prerequisites
+
+- Kubernetes cluster
+- kubectl configured
+- Helm (optional, for Redis deployment)
+
+### 2. Set Up Namespace and Secrets
+
+```bash
+# Create namespace
+kubectl create namespace mcp
+
+# Create secrets
+kubectl create secret generic mcp-secrets \
+  --from-literal=openai-api-key=YOUR_OPENAI_API_KEY \
+  --from-literal=redis-password=YOUR_REDIS_PASSWORD \
+  -n mcp
+```
+
+### 3. Deploy Redis (if needed)
+
+```bash
+# Using Helm
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install redis bitnami/redis \
+  --namespace mcp \
+  --set auth.password=YOUR_REDIS_PASSWORD \
+  --set master.persistence.size=8Gi
+```
+
+### 4. Deploy MCP Components
+
+```bash
+# Apply Kubernetes manifests
+kubectl apply -f kubernetes/deployment.yaml -n mcp
+kubectl apply -f kubernetes/service.yaml -n mcp
+kubectl apply -f kubernetes/ingress.yaml -n mcp
+```
+
+### 5. Set Up Autoscaling (Optional)
+
+```bash
+kubectl apply -f kubernetes/hpa.yaml -n mcp
+```
+
+### 6. Check Deployment Status
+
+```bash
+kubectl get pods -n mcp
+kubectl get services -n mcp
+kubectl get ingress -n mcp
+```
+
+## AWS Deployment
+
+For deployment on AWS Cloud:
+
+### 1. Prerequisites
+
+- AWS CLI configured
+- Appropriate IAM permissions
+
+### 2. CloudFormation Deployment
+
+```bash
+# Deploy using CloudFormation template
+aws cloudformation create-stack \
+  --stack-name mcp-hybrid-system \
+  --template-body file://aws/cloudformation.yaml \
+  --capabilities CAPABILITY_IAM \
+  --parameters \
+    ParameterKey=Environment,ParameterValue=Production \
+    ParameterKey=OllamaInstanceType,ParameterValue=g4dn.xlarge
+
+# Check deployment status
+aws cloudformation describe-stacks --stack-name mcp-hybrid-system
+```
+
+### 3. Deploy API Image to ECR
+
+```bash
+# Log in to ECR
+aws ecr get-login-password | docker login --username AWS --password-stdin YOUR_AWS_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com
+
+# Build and push image
+docker build -t YOUR_AWS_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/mcp-api:latest -f Dockerfile.prod .
+docker push YOUR_AWS_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/mcp-api:latest
+```
+
+### 4. Update ECS Service
+
+```bash
+# Force new deployment to use the updated image
+aws ecs update-service --cluster mcp-hybrid-system-cluster --service mcp-hybrid-system-api --force-new-deployment
+```
+
+--- 
+
+# API Reference
+
+## Authentication
+
+The MCP API uses API key authentication. Include your API key in all requests using either:
+
+### Bearer Token Authentication
+
+```
+Authorization: Bearer YOUR_API_KEY
+```
+
+### Query Parameter
+
+```
+?api_key=YOUR_API_KEY
+```
+
+## Chat Endpoints
+
+### Create Chat Completion
+
+Generates a completion for a given conversation.
+
+**Endpoint:** `POST /api/v1/chat/completions`
+
+**Request Body:**
+
+```json
+{
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Hello, who are you?"}
+  ],
+  "model": "auto",
+  "temperature": 0.7,
+  "max_tokens": 1024,
+  "stream": false,
+  "routing_preferences": {
+    "force_provider": null,
+    "privacy_level": "standard",
+    "latency_preference": "balanced"
+  },
+  "tools": []
+}
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| messages | array | Array of message objects representing the conversation history |
+| model | string | The model to use, or "auto" for automatic selection |
+| temperature | number | Controls randomness (0-1) |
+| max_tokens | integer | Maximum tokens in response |
+| stream | boolean | Whether to stream the response |
+| routing_preferences | object | Preferences for provider selection |
+| tools | array | List of tools the assistant can use |
+
+**Response:**
+
+```json
+{
+  "id": "resp_abc123",
+  "object": "chat.completion",
+  "created": 1677858242,
+  "provider": "openai",
+  "model": "gpt-4o",
+  "usage": {
+    "prompt_tokens": 56,
+    "completion_tokens": 325,
+    "total_tokens": 381
+  },
+  "message": {
+    "role": "assistant",
+    "content": "Hello! I'm an AI assistant...",
+    "tool_calls": []
+  },
+  "routing_metrics": {
+    "complexity_score": 0.78,
+    "privacy_impact": "low",
+    "decision_factors": ["complexity", "tool_requirements"]
+  }
+}
+```
+
+### Stream Chat Completion
+
+Stream a completion for a conversation.
+
+**Endpoint:** `POST /api/v1/chat/streaming`
+
+**Request Body:** Same as `/api/v1/chat/completions` but `stream` must be `true`.
+
+**Response:** Server-sent events (SSE) stream of partial completions.
+
+### Hybrid Chat
+
+Intelligent routing between OpenAI and Ollama based on query characteristics.
+
+**Endpoint:** `POST /api/v1/chat/hybrid`
+
+**Request Body:**
+
+```json
+{
+  "messages": [
+    {"role": "user", "content": "Explain quantum computing"}
+  ],
+  "mode": "auto",
+  "options": {
+    "prioritize_privacy": false,
+    "prioritize_speed": false
+  }
+}
+```
+
+**Response:** Same format as `/api/v1/chat/completions`.
+
+## Agent Endpoints
+
+### Run Agent
+
+Execute an agent with specific configuration.
+
+**Endpoint:** `POST /api/v1/agents/run`
+
+**Request Body:**
+
+```json
+{
+  "agent_config": {
+    "instructions": "You are a research assistant...",
+    "model": "gpt-4o",
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "search_knowledge_base",
+          "description": "Search for information",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            },
+            "required": ["query"]
+          }
+        }
+      }
+    ]
+  },
+  "messages": [
+    {"role": "user", "content": "Find information about renewable energy"}
+  ],
+  "metadata": {
+    "session_id": "user_session_123"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "run_id": "run_abc123",
+  "status": "in_progress",
+  "created_at": 1677858242,
+  "estimated_completion_time": 1677858260,
+  "polling_url": "/api/v1/agents/status/run_abc123"
+}
+```
+
+### Get Agent Status
+
+Check the status of a running agent.
+
+**Endpoint:** `GET /api/v1/agents/status/{run_id}`
+
+**Response:**
+
+```json
+{
+  "run_id": "run_abc123",
+  "status": "completed",
+  "result": {
+    "output": "Renewable energy comes from sources that are...",
+    "tool_calls": []
+  },
+  "created_at": 1677858242,
+  "completed_at": 1677858260
+}
+```
+
+### List Available Agents
+
+List all available agent configurations.
+
+**Endpoint:** `GET /api/v1/agents`
+
+**Response:**
+
+```json
+{
+  "agents": [
+    {
+      "id": "research",
+      "name": "Research Assistant",
+      "description": "Specialized in finding and synthesizing information"
+    },
+    {
+      "id": "coding",
+      "name": "Code Assistant",
+      "description": "Helps with programming tasks"
+    }
+  ]
+}
+```
+
+## Model Management Endpoints
+
+### List Models
+
+List all available models.
+
+**Endpoint:** `GET /api/v1/models`
+
+**Response:**
+
+```json
+{
+  "openai_models": [
+    {
+      "id": "gpt-4o",
+      "name": "GPT-4o",
+      "capabilities": ["general", "code", "reasoning"],
+      "context_window": 128000
+    },
+    {
+      "id": "gpt-3.5-turbo",
+      "name": "GPT-3.5 Turbo",
+      "capabilities": ["general"],
+      "context_window": 16000
+    }
+  ],
+  "ollama_models": [
+    {
+      "id": "llama2",
+      "name": "Llama 2",
+      "capabilities": ["general"],
+      "context_window": 4096
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral",
+      "capabilities": ["general", "reasoning"],
+      "context_window": 8192
+    }
+  ]
+}
+```
+
+### Get Model Details
+
+Get detailed information about a specific model.
+
+**Endpoint:** `GET /api/v1/models/{model_id}`
+
+**Response:**
+
+```json
+{
+  "id": "mistral",
+  "name": "Mistral",
+  "provider": "ollama",
+  "capabilities": ["general", "reasoning"],
+  "context_window": 8192,
+  "recommended_usage": "General purpose tasks with reasoning requirements",
+  "performance_characteristics": {
+    "average_response_time": 2.4,
+    "tokens_per_second": 45
+  }
+}
+```
+
+### Pull Ollama Model
+
+Pull a new model for Ollama.
+
+**Endpoint:** `POST /api/v1/models/ollama/pull`
+
+**Request Body:**
+
+```json
+{
+  "model": "wizard-math"
+}
+```
+
+**Response:**
+
+```json
+{
+  "status": "pulling",
+  "model": "wizard-math",
+  "estimated_time": 120
+}
+```
+
+## System Endpoints
+
+### Health Check
+
+Check system health.
+
+**Endpoint:** `GET /api/v1/health`
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "version": "1.0.0",
+  "providers": {
+    "openai": "connected",
+    "ollama": "connected"
+  },
+  "uptime": 3600
+}
+```
+
+### System Configuration
+
+Get current system configuration.
+
+**Endpoint:** `GET /api/v1/config`
+
+**Response:**
+
+```json
+{
+  "routing": {
+    "complexity_threshold": 0.65,
+    "privacy_sensitive_patterns": ["password", "secret", "key"],
+    "default_provider": "auto"
+  },
+  "caching": {
+    "enabled": true,
+    "ttl": 3600
+  },
+  "optimization": {
+    "token_optimization": true,
+    "parallel_processing": true
+  },
+  "monitoring": {
+    "metrics_collection": true,
+    "log_level": "info"
+  }
+}
+```
+
+### Update Configuration
+
+Update system configuration.
+
+**Endpoint:** `POST /api/v1/config`
+
+**Request Body:**
+
+```json
+{
+  "routing": {
+    "complexity_threshold": 0.7
+  },
+  "caching": {
+    "ttl": 7200
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "status": "updated",
+  "updated_fields": ["routing.complexity_threshold", "caching.ttl"]
+}
+```
+
+### System Metrics
+
+Get system performance metrics.
+
+**Endpoint:** `GET /api/v1/metrics`
+
+**Response:**
+
+```json
+{
+  "requests": {
+    "total": 15420,
+    "last_minute": 42,
+    "last_hour": 1254
+  },
+  "routing": {
+    "openai_requests": 6210,
+    "ollama_requests": 9210,
+    "auto_routing_accuracy": 0.94
+  },
+  "performance": {
+    "average_response_time": 2.3,
+    "p95_response_time": 6.1,
+    "cache_hit_rate": 0.37
+  },
+  "cost": {
+    "total_openai_cost": 135.42,
+    "estimated_savings": 98.67,
+    "cost_per_request": 0.0088
+  }
+}
+```
+
+---
+
+# Configuration
+
+## Environment Variables
+
+The MCP system can be configured using the following environment variables:
+
+### Core Configuration
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `OPENAI_API_KEY` | OpenAI API Key | (Required) |
+| `OPENAI_ORG_ID` | OpenAI Organization ID | (Optional) |
+| `OPENAI_MODEL` | Default OpenAI model | gpt-4o |
+| `OLLAMA_HOST` | Ollama host URL | http://localhost:11434 |
+| `OLLAMA_MODEL` | Default Ollama model | llama2 |
+| `APP_ENV` | Environment (development, staging, production) | development |
+| `LOG_LEVEL` | Logging level | INFO |
+| `PORT` | API server port | 8000 |
+
+### Redis Configuration
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `REDIS_URL` | Redis connection URL | redis://localhost:6379/0 |
+| `REDIS_PASSWORD` | Redis password | (Optional) |
+| `ENABLE_CACHING` | Enable response caching | true |
+| `CACHE_TTL` | Cache TTL in seconds | 3600 |
+
+### Routing Configuration
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `COMPLEXITY_THRESHOLD` | Threshold for routing to OpenAI | 0.65 |
+| `PRIVACY_SENSITIVE_TOKENS` | Comma-separated list of privacy-sensitive tokens | password,secret,key |
+| `DEFAULT_PROVIDER` | Default provider if not specified | auto |
+| `FORCE_OLLAMA` | Force using Ollama for all requests | false |
+| `FORCE_OPENAI` | Force using OpenAI for all requests | false |
+
+### Performance Configuration
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `ENABLE_PARALLEL_PROCESSING` | Enable parallel processing for complex queries | true |
+| `MAX_PARALLEL_REQUESTS` | Maximum number of parallel requests | 4 |
+| `ENABLE_BATCHING` | Enable request batching | true |
+| `MAX_BATCH_SIZE` | Maximum batch size | 5 |
+| `REQUEST_TIMEOUT` | Request timeout in seconds | 120 |
+
+### Cost Optimization
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `MONTHLY_BUDGET` | Monthly budget cap for OpenAI usage (USD) | 0 (no limit) |
+| `ENABLE_TOKEN_OPTIMIZATION` | Enable token usage optimization | true |
+| `TOKEN_BUDGET` | Token budget per request | 0 (no limit) |
+| `DEV_MODE_TOKEN_LIMIT` | Token limit in development mode | 1000 |
+
+### Monitoring
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `ENABLE_METRICS` | Enable metrics collection | true |
+| `METRICS_PORT` | Prometheus metrics port | 9090 |
+| `ENABLE_TRACING` | Enable distributed tracing | false |
+| `SENTRY_DSN` | Sentry DSN for error tracking | (Optional) |
+
+## Advanced Configuration
+
+### Configuration File
+
+For more advanced configuration, create a YAML configuration file at `config/config.yaml`:
+
+```yaml
+routing:
+  # Complexity assessment weights
+  complexity_weights:
+    length: 0.3
+    specialized_terms: 0.4
+    sentence_structure: 0.3
+  
+  # Ollama model routing
+  ollama_routing:
+    code_generation: "codellama"
+    mathematical: "wizard-math"
+    creative: "dolphin-mistral"
+    general: "mistral"
+    
+  # OpenAI model routing
+  openai_routing:
+    complex_reasoning: "gpt-4o"
+    general: "gpt-3.5-turbo"
+
+caching:
+  # Semantic caching configuration
+  semantic:
+    enabled: true
+    similarity_threshold: 0.92
+    max_cached_items: 1000
+    
+  # Exact match caching
+  exact:
+    enabled: true
+    max_cached_items: 500
+
+optimization:
+  # Chain of thought settings
+  chain_of_thought:
+    enabled: true
+    task_types: ["reasoning", "math", "decision"]
+    
+  # Response verification
+  verification:
+    enabled: true
+    high_risk_categories: ["medical", "legal", "financial"]
+
+monitoring:
+  # Logging configuration
+  logging:
+    format: "json"
+    include_request_body: false
+    mask_sensitive_data: true
+    
+  # Alert thresholds
+  alerts:
+    high_latency_threshold: 5.0  # seconds
+    error_rate_threshold: 0.05   # 5%
+    budget_warning_threshold: 0.8  # 80% of budget
+```
+
+### Custom Provider Configuration
+
+To configure additional inference providers, add a `providers.yaml` file:
+
+```yaml
+providers:
+  - name: azure-openai
+    type: openai-compatible
+    base_url: https://your-deployment.openai.azure.com
+    api_key_env: AZURE_OPENAI_API_KEY
+    models:
+      - id: gpt-4
+        deployment_id: your-gpt4-deployment
+      - id: gpt-35-turbo
+        deployment_id: your-gpt35-deployment
+        
+  - name: local-inference
+    type: ollama-compatible
+    base_url: http://localhost:8080
+    models:
+      - id: local-model
+        capabilities: ["general"]
+```
+
+## Model Selection
+
+### Model Tiers
+
+MCP uses a tiered approach to model selection:
+
+| Tier | OpenAI Models | Ollama Models | Use Cases |
+|------|---------------|--------------|-----------|
+| High | gpt-4o, gpt-4 | llama2:70b, codellama:34b | Complex reasoning, creative tasks, code generation |
+| Medium | gpt-3.5-turbo | mistral, codellama | General purpose, standard code tasks |
+| Low | gpt-3.5-turbo | llama2, phi | Simple queries, development testing |
+
+### Task-Specific Model Mapping
+
+MCP maps specific task types to appropriate models:
+
+| Task Type | High Tier | Medium Tier | Low Tier |
+|-----------|-----------|-------------|----------|
+| Code Generation | gpt-4o | codellama | codellama |
+| Creative Writing | gpt-4o | mistral | mistral |
+| Mathematical | gpt-4o | gpt-3.5-turbo | wizard-math |
+| General Knowledge | gpt-3.5-turbo | mistral | llama2 |
+| Summarization | gpt-3.5-turbo | mistral | llama2 |
+
+To override the automatic model selection, specify the model explicitly in your request:
+
+```json
+{
+  "model": "openai:gpt-4o"  // Force OpenAI GPT-4o
+}
+```
+
+Or:
+
+```json
+{
+  "model": "ollama:mistral"  // Force Ollama Mistral
+}
+```
+
+---
+
+# Usage Examples
+
+## Basic Chat Interaction
+
+### Python Example
+
+```python
+import requests
+import json
+
+API_URL = "http://localhost:8000/api/v1"
+API_KEY = "your_api_key_here"
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {API_KEY}"
+}
+
+# Basic chat completion
+def chat(message, history=None):
+    history = history or []
+    history.append({"role": "user", "content": message})
+    
+    response = requests.post(
+        f"{API_URL}/chat/completions",
+        headers=headers,
+        json={
+            "messages": history,
+            "model": "auto",  # Let the system decide
+            "temperature": 0.7
+        }
+    )
+    
+    if response.status_code == 200:
+        result = response.json()
+        assistant_message = result["message"]["content"]
+        history.append({"role": "assistant", "content": assistant_message})
+        
+        print(f"Model used: {result['model']} via {result['provider']}")
+        return assistant_message, history
+    else:
+        print(f"Error: {response.status_code}")
+        print(response.text)
+        return None, history
+
+# Example conversation
+history = []
+response, history = chat("Hello! What can you tell me about artificial intelligence?", history)
+print(f"Assistant: {response}\n")
+
+response, history = chat("What are some practical applications?", history)
+print(f"Assistant: {response}")
+```
+
+### cURL Example
+
+```bash
+# Simple completion
+curl -X POST http://localhost:8000/api/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key_here" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "Explain how photosynthesis works"}
+    ],
+    "model": "auto",
+    "temperature": 0.7
+  }'
+
+# Streaming response
+curl -X POST http://localhost:8000/api/v1/chat/streaming \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key_here" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "Write a short poem about robots"}
+    ],
+    "model": "auto",
+    "stream": true
+  }'
+```
+
+## Working with Agents
+
+### Python Example
+
+```python
+import requests
+import json
+import time
+
+API_URL = "http://localhost:8000/api/v1"
+API_KEY = "your_api_key_here"
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {API_KEY}"
+}
+
+# Run an agent with tools
+def run_research_agent(query):
+    # Define agent configuration with tools
+    agent_config = {
+        "instructions": "You are a research assistant specialized in finding information.",
+        "model": "gpt-4o",
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_web",
+                    "description": "Search the web for information",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query"
+                            },
+                            "num_results": {
+                                "type": "integer",
+                                "description": "Number of results to return"
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            }
+        ]
+    }
+    
+    # Run the agent
+    response = requests.post(
+        f"{API_URL}/agents/run",
+        headers=headers,
+        json={
+            "agent_config": agent_config,
+            "messages": [
+                {"role": "user", "content": query}
+            ]
+        }
+    )
+    
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}")
+        print(response.text)
+        return None
+    
+    result = response.json()
+    run_id = result["run_id"]
+    
+    # Poll for completion
+    while True:
+        status_response = requests.get(
+            f"{API_URL}/agents/status/{run_id}",
+            headers=headers
+        )
+        
+        if status_response.status_code != 200:
+            print(f"Error checking status: {status_response.status_code}")
+            return None
+        
+        status_data = status_response.json()
+        
+        if status_data["status"] == "completed":
+            return status_data["result"]["output"]
+        elif status_data["status"] == "failed":
+            print(f"Agent run failed: {status_data.get('error')}")
+            return None
+        
+        time.sleep(1)  # Poll every second
+
+# Example usage
+result = run_research_agent("What are the latest advancements in fusion energy?")
+print(result)
+```
+
+### cURL Example
+
+```bash
+# Run an agent
+curl -X POST http://localhost:8000/api/v1/agents/run \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key_here" \
+  -d '{
+    "agent_config": {
+      "instructions": "You are a coding assistant.",
+      "model": "gpt-4o",
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "generate_code",
+            "description": "Generate code in a specific language",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "type": "string",
+                  "description": "Programming language"
+                },
+                "task": {
+                  "type": "string",
+                  "description": "Task description"
+                }
+              },
+              "required": ["language", "task"]
+            }
+          }
+        }
+      ]
+    },
+    "messages": [
+      {"role": "user", "content": "Write a Python function to detect palindromes"}
+    ]
+  }'
+
+# Check status
+curl -X GET http://localhost:8000/api/v1/agents/status/run_abc123 \
+  -H "Authorization: Bearer your_api_key_here"
+```
+
+## Customizing Model Selection
+
+### Python Example
+
+```python
+import requests
+
+API_URL = "http://localhost:8000/api/v1"
+API_KEY = "your_api_key_here"
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {API_KEY}"
+}
+
+# Custom routing preferences
+def custom_routing_chat(message, routing_preferences):
+    response = requests.post(
+        f"{API_URL}/chat/completions",
+        headers=headers,
+        json={
+            "messages": [
+                {"role": "user", "content": message}
+            ],
+            "routing_preferences": routing_preferences
+        }
+    )
+    
+    if response.status_code == 200:
+        result = response.json()
+        print(f"Provider: {result['provider']}, Model: {result['model']}")
+        return result["message"]["content"]
+    else:
+        print(f"Error: {response.status_code}")
+        print(response.text)
+        return None
+
+# Examples with different routing preferences
+response = custom_routing_chat(
+    "What is the capital of France?",
+    {
+        "force_provider": "ollama",  # Force Ollama
+        "privacy_level": "standard",
+        "latency_preference": "balanced"
+    }
+)
+print(f"Response: {response}\n")
+
+response = custom_routing_chat(
+    "Analyze the philosophical implications of artificial general intelligence.",
+    {
+        "force_provider": "openai",  # Force OpenAI
+        "privacy_level": "standard",
+        "latency_preference": "quality"  # Prefer quality over speed
+    }
+)
+print(f"Response: {response}\n")
+
+response = custom_routing_chat(
+    "What is my personal password?",
+    {
+        "force_provider": None,  # Auto-select
+        "privacy_level": "high",  # Privacy-sensitive query
+        "latency_preference": "balanced"
+    }
+)
+print(f"Response: {response}")
+```
+
+### cURL Example
+
+```bash
+# Force Ollama for this request
+curl -X POST http://localhost:8000/api/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key_here" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "What is the capital of Sweden?"}
+    ],
+    "routing_preferences": {
+      "force_provider": "ollama",
+      "privacy_level": "standard",
+      "latency_preference": "speed"
+    }
+  }'
+
+# Force specific model
+curl -X POST http://localhost:8000/api/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key_here" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "Write Python code to implement merge sort"}
+    ],
+    "model": "ollama:codellama"
+  }'
+```
+
+## Tool Integration
+
+### Python Example
+
+```python
+import requests
+
+API_URL = "http://localhost:8000/api/v1"
+API_KEY = "your_api_key_here"
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {API_KEY}"
+}
+
+# Chat with tool integration
+def chat_with_tools(message, tools):
+    response = requests.post(
+        f"{API_URL}/chat/completions",
+        headers=headers,
+        json={
+            "messages": [
+                {"role": "user", "content": message}
+            ],
+            "tools": tools
+        }
+    )
+    
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}")
+        print(response.text)
+        return None
+    
+    result = response.json()
+    
+    # Check if the model wants to call a tool
+    if "tool_calls" in result["message"] and result["message"]["tool_calls"]:
+        tool_calls = result["message"]["tool_calls"]
+        print(f"Tool calls requested: {len(tool_calls)}")
+        
+        # Process each tool call
+        for tool_call in tool_calls:
+            # In a real implementation, you would execute the actual tool here
+            # For this example, we'll just simulate it
+            function_name = tool_call["function"]["name"]
+            arguments = json.loads(tool_call["function"]["arguments"])
+            
+            print(f"Executing tool: {function_name}")
+            print(f"Arguments: {arguments}")
+            
+            # Simulate tool execution
+            if function_name == "get_weather":
+                tool_result = f"Weather in {arguments['location']}: Sunny, 22°C"
+            elif function_name == "search_database":
+                tool_result = f"Database results for {arguments['query']}: 3 records found"
+            else:
+                tool_result = "Unknown tool"
+            
+            # Send the tool result back
+            response = requests.post(
+                f"{API_URL}/chat/completions",
+                headers=headers,
+                json={
+                    "messages": [
+                        {"role": "user", "content": message},
+                        {
+                            "role": "assistant",
+                            "content": result["message"]["content"],
+                            "tool_calls": result["message"]["tool_calls"]
+                        },
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "content": tool_result
+                        }
+                    ]
+                }
+            )
+            
+            if response.status_code == 200:
+                final_result = response.json()
+                return final_result["message"]["content"]
+            else:
+                print(f"Error in tool response: {response.status_code}")
+                return None
+    
+    # If no tool calls, return the direct response
+    return result["message"]["content"]
+
+# Define available tools
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get current weather in a location",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "City name"
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "Temperature unit"
+                    }
+                },
+                "required": ["location"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_database",
+            "description": "Search a database for information",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of results"
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    }
+]
+
+# Example usage
+response = chat_with_tools("What's the weather like in Paris?", tools)
+print(f"Final response: {response}")
+```
+
+---
+
+# Troubleshooting
+
+## Common Issues
+
+### Installation Issues
+
+#### Ollama Installation Fails
+
+**Symptoms:**
+- Error messages during Ollama installation
+- `ollama serve` command not found
+
+**Possible Solutions:**
+1. Check system requirements (minimum 8GB RAM recommended)
+2. For Linux, ensure you have the required dependencies:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y ca-certificates curl
+   ```
+3. Try the manual installation from [ollama.ai](https://ollama.ai/download)
+4. Check if Ollama is running:
+   ```bash
+   ps aux | grep ollama
+   ```
+
+#### Python Dependency Errors
+
+**Symptoms:**
+- `pip install` fails with compatibility errors
+- Import errors when starting the application
+
+**Possible Solutions:**
+1. Ensure you're using Python 3.11 or higher:
+   ```bash
+   python --version
+   ```
+2. Try creating a fresh virtual environment:
+   ```bash
+   rm -rf venv
+   python -m venv venv
+   source venv/bin/activate
+   pip install --upgrade pip
+   ```
+3. Install dependencies one by one to identify problematic packages:
+   ```bash
+   pip install -r requirements.txt --no-deps
+   ```
+4. Check for conflicts with pip:
+   ```bash
+   pip check
+   ```
+
+### API Connection Issues
+
+#### OpenAI API Key Invalid
+
+**Symptoms:**
+- Error messages about authentication
+- "Invalid API key" errors
+
+**Possible Solutions:**
+1. Verify your API key is correct and active in the OpenAI dashboard
+2. Check if the key is properly set in your `.env` file or environment variables
+3. Ensure there are no spaces or unexpected characters in the key
+4. Test the key with a simple OpenAI API request:
+   ```bash
+   curl https://api.openai.com/v1/models \
+     -H "Authorization: Bearer YOUR_API_KEY"
+   ```
+
+#### Ollama Connection Failed
+
+**Symptoms:**
+- "Connection refused" errors when connecting to Ollama
+- API requests to Ollama timeout
+
+**Possible Solutions:**
+1. Verify Ollama is running:
+   ```bash
+   ollama list  # Should show available models
+   ```
+2. If not running, start the Ollama service:
+   ```bash
+   ollama serve
+   ```
+3. Check if the Ollama port is accessible:
+   ```bash
+   curl http://localhost:11434/api/tags
+   ```
+4. Verify your `OLLAMA_HOST` setting in the configuration
+5. If using Docker, ensure proper network configuration between containers
+
+### Performance Issues
+
+#### High Latency with Ollama
+
+**Symptoms:**
+- Very slow responses from Ollama models
+- Timeouts during inference
+
+**Possible Solutions:**
+1. Check if you have GPU support enabled:
+   ```bash
+   nvidia-smi  # Should show GPU usage
+   ```
+2. Try a smaller model:
+   ```bash
+   ollama pull tinyllama
+   ```
+3. Adjust model parameters in your request:
+   ```json
+   {
+     "model": "ollama:llama2",
+     "max_tokens": 512,
+     "temperature": 0.7
+   }
+   ```
+4. Check system resource usage:
+   ```bash
+   htop
+   ```
+5. Increase the timeout in your configuration
+
+#### Memory Usage Too High
+
+**Symptoms:**
+- Out of memory errors
+- System becomes unresponsive
+
+**Possible Solutions:**
+1. Use smaller models (e.g., `mistral:7b` instead of larger variants)
+2. Reduce batch sizes in configuration
+3. Implement memory limits:
+   ```bash
+   # In docker-compose.yml
+   services:
+     ollama:
+       deploy:
+         resources:
+           limits:
+             memory: 12G
+   ```
+4. Enable context window optimization:
+   ```
+   ENABLE_TOKEN_OPTIMIZATION=true
+   ```
+
+### Routing and Model Issues
+
+#### All Requests Going to One Provider
+
+**Symptoms:**
+- All requests route to OpenAI despite configuration
+- All requests route to Ollama regardless of complexity
+
+**Possible Solutions:**
+1. Check for environment variables forcing a provider:
+   ```
+   FORCE_OLLAMA=false
+   FORCE_OPENAI=false
+   ```
+2. Verify complexity threshold setting:
+   ```
+   COMPLEXITY_THRESHOLD=0.65
+   ```
+3. Review routing preferences in requests:
+   ```json
+   {
+     "routing_preferences": {
+       "force_provider": null
+     }
+   }
+   ```
+4. Check logs for routing decisions
+
+#### Model Not Found
+
+**Symptoms:**
+- "Model not found" errors
+- Models available but not being used
+
+**Possible Solutions:**
+1. List available models:
+   ```bash
+   ollama list
+   ```
+2. Pull the missing model:
+   ```bash
+   ollama pull mistral
+   ```
+3. Verify model names match exactly what you're requesting
+4. Check model mapping in configuration
+
+## Diagnostics
+
+### Log Analysis
+
+MCP logs contain valuable diagnostic information. Use the following commands to analyze logs:
+
+```bash
+# View API logs
+docker-compose logs -f app
+
+# View Ollama logs
+docker-compose logs -f ollama
+
+# Search for errors
+docker-compose logs | grep -i error
+
+# Check routing decisions
+docker-compose logs app | grep "Routing decision"
+```
+
+### Health Check
+
+Use the health check endpoint to verify system status:
+
+```bash
+curl http://localhost:8000/api/v1/health
+
+# For more detailed health information
+curl http://localhost:8000/api/v1/health/details
+```
+
+### Debug Mode
+
+Enable debug logging for more detailed information:
+
+```bash
+# Set environment variable
+export LOG_LEVEL=DEBUG
+
+# Or modify in .env file
+LOG_LEVEL=DEBUG
+```
+
+### Performance Testing
+
+Use the built-in benchmark tool to test system performance:
+
+```bash
+python scripts/benchmark.py --provider both --queries 10 --complexity mixed
+```
+
+## Log Management
+
+### Log Levels
+
+MCP uses the following log levels:
+
+- `ERROR`: Critical errors that require immediate attention
+- `WARNING`: Non-critical issues that might indicate problems
+- `INFO`: General operational information
+- `DEBUG`: Detailed information for debugging purposes
+
+### Log Formats
+
+Logs can be formatted as text or JSON:
+
+```bash
+# Set JSON logging
+export LOG_FORMAT=json
+
+# Set text logging (default)
+export LOG_FORMAT=text
+```
+
+### External Log Management
+
+For production environments, consider forwarding logs to an external system:
+
+```bash
+# Using Fluentd
+docker-compose -f docker-compose.yml -f docker-compose.logging.yml up -d
+```
+
+Or configure log drivers in Docker:
+
+```yaml
+# In docker-compose.yml
+services:
+  app:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+---
+
+# Contributing
+
+Contributions to the MCP system are welcome! Please follow these guidelines:
+
+## Getting Started
+
+1. **Fork the Repository**
+   
+   Fork the repository on GitHub and clone your fork locally:
+   
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/mcp.git
+   cd mcp
+   ```
+
+2. **Set Up Development Environment**
+   
+   Follow the installation instructions in the [Installation Guide](#installation-guide) section.
+
+3. **Create a Branch**
+   
+   Create a branch for your feature or bugfix:
+   
+   ```bash
+   git checkout -b feature/your-feature-name
+   # or
+   git checkout -b fix/your-bugfix-name
+   ```
+
+## Development Guidelines
+
+### Code Style
+
+- Follow PEP 8 style guidelines for Python code
+- Use type hints for all function definitions
+- Format code with Black
+- Verify style with flake8
+
+```bash
+# Install development tools
+pip install black flake8 mypy
+
+# Format code
+black app tests
+
+# Check style
+flake8 app tests
+
+# Run type checking
+mypy app
+```
+
+### Testing
+
+- Write unit tests for all new functionality
+- Ensure existing tests pass before submitting a PR
+- Maintain or improve code coverage
+
+```bash
+# Run tests
+pytest
+
+# Run tests with coverage
+pytest --cov=app tests/
+
+# Run only unit tests
+pytest tests/unit/
+
+# Run integration tests
+pytest tests/integration/
+```
+
+### Documentation
+
+- Update documentation for any new features or changes
+- Document all public APIs with docstrings
+- Keep the README and guides up to date
+
+## Submitting Changes
+
+1. **Commit Your Changes**
+   
+   Make focused commits with meaningful commit messages:
+   
+   ```bash
+   git add .
+   git commit -m "Add feature: detailed description of changes"
+   ```
+
+2. **Pull Latest Changes**
+   
+   Rebase your branch on the latest main:
+   
+   ```bash
+   git checkout main
+   git pull upstream main
+   git checkout your-branch
+   git rebase main
+   ```
+
+3. **Push to Your Fork**
+   
+   ```bash
+   git push origin your-branch
+   ```
+
+4. **Create a Pull Request**
+   
+   Open a pull request from your fork to the main repository:
+   
+   - Provide a clear title and description
+   - Reference any related issues
+   - Describe testing performed
+   - Include screenshots for UI changes
+
+## Code of Conduct
+
+- Be respectful and inclusive in all interactions
+- Provide constructive feedback
+- Focus on the issues, not the people
+- Welcome contributors of all backgrounds and experience levels
+
+## License
+
+By contributing to this project, you agree that your contributions will be licensed under the project's MIT License.
+
+---
+
+# License
+
+## MIT License
+
+```
+Copyright (c) 2023 MCP Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Third-Party Licenses
+
+This project incorporates several third-party open-source libraries, each with its own license:
+
+- **FastAPI**: MIT License
+- **Pydantic**: MIT License
+- **Uvicorn**: BSD 3-Clause License
+- **OpenAI Python**: MIT License
+- **Redis-py**: MIT License
+- **Prometheus Client**: Apache License 2.0
+- **Ollama**: MIT License
+
+Full license texts are included in the LICENSE-3RD-PARTY file in the repository.
+
+## Usage Restrictions
+
+While the MCP system itself is open source, usage of the OpenAI API is subject to OpenAI's terms of service and usage policies. Please ensure your use of the API complies with these terms.
