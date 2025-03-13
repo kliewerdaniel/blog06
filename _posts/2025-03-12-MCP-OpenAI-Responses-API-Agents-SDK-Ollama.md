@@ -4,7 +4,6 @@ title: Crafting Symbiotic Intelligence Implementing MCP with OpenAI Responses AP
 description: This comprehensive guide demonstrates how to integrate the official OpenAI Agents SDK with Ollama to create AI agents that run entirely on local infrastructure. By the end, you'll understand both the theoretical foundations and practical implementation of locally-hosted AI agents.
 date: 2025-03-12 11:42:44 -0500
 ---
-```
 
 # Crafting Symbiotic Intelligence: Implementing MCP with OpenAI Responses API, Agents SDK, and Ollama
 
