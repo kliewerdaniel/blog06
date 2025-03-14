@@ -215,6 +215,11 @@ function Header() {
               </Link>
             </li>
             <li>
+              <Link href="/art" className="mobile-link">
+                Art
+              </Link>
+            </li>
+            <li>
               <Link href="/contact" className="mobile-link">
                 Contact
               </Link>
@@ -238,6 +243,11 @@ function Header() {
             <li>
               <Link href="/blog" className="hover:text-primary transition-colors text-base">
                 Blog
+              </Link>
+            </li>
+            <li>
+              <Link href="/art" className="hover:text-primary transition-colors text-base">
+                Art
               </Link>
             </li>
             <li>
