@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Metadata } from "next";
 
 // Separate viewport export as recommended by Next.js
@@ -11,7 +10,7 @@ export const viewport = {
 export const metadata: Metadata = {
   title: "About Daniel Kliewer | Software Engineer & AI Developer",
   description: "Learn about Daniel Kliewer's journey through technology and creativity, featuring his expertise in data annotation, software development, and artificial intelligence.",
-  keywords: "Daniel Kliewer, data annotation, software development, AI, Python, JavaScript, TypeScript, Next.js, React, TailwindCSS, Ollama, LangChain, Reddit Data Analysis",
+  keywords: "Daniel Kliewer, data annotation, software development, AI, Python, JavaScript, TypeScript, Next.js, React, TailwindCSS, Ollama, LangChain, Reddit Data Analysis, contact, AI developer, collaboration, machine learning, web development, hire developer",
   authors: [{ name: "Daniel Kliewer" }],
   openGraph: {
     title: "About Daniel Kliewer | Software Engineer & AI Developer",
@@ -205,29 +204,72 @@ export default function AboutPage() {
         </p>
       </section>
       
-      {/* Connect with Daniel */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-bold mb-6">Connect with Daniel</h2>
+      {/* Technology & AI Development */}
+      <section className="mb-12">
+        <h2 className="text-2xl font-bold mb-6">Technology & AI Development</h2>
         <div className="card p-6">
+          <ul className="space-y-2 list-disc pl-5">
+            <li><strong>Machine Learning & AI Integration</strong> – Developing local AI models, optimizing LLM workflows, and integrating AI into applications.</li>
+            <li><strong>Software Engineering</strong> – Creating robust, scalable solutions with a focus on security, automation, and performance.</li>
+            <li><strong>Web Development & SEO</strong> – Building modern, efficient web applications using frameworks like Jekyll, Hugo, and React while ensuring high search engine visibility.</li>
+            <li><strong>Open-Source & Decentralized AI</strong> – Advocating for self-reliant computing, fostering open-source AI projects, and promoting ethical AI usage.</li>
+            <li><strong>Linguistic & Persona Modeling</strong> – Crafting AI-driven personas, analyzing writing styles, and experimenting with computational creativity.</li>
+          </ul>
+        </div>
+      </section>
+      
+      {/* Artistic Creations */}
+      <section className="mb-12">
+        <h2 className="text-2xl font-bold mb-6">Artistic Creations</h2>
+        <div className="card p-6">
+          <ul className="space-y-2 list-disc pl-5">
+            <li><strong>Digital & Traditional Art</strong> – Exploring abstract, surreal, and conceptual art forms through digital painting, graphic design, and mixed media.</li>
+            <li><strong>AI-Generated Art & Writing</strong> – Experimenting with AI-generated literature, poetry, and visual storytelling.</li>
+            <li><strong>Music & Audio Experiments</strong> – Creating AI-assisted music compositions, soundscapes, and voice synthesis projects.</li>
+            <li><strong>Experimental Literature & Fiction</strong> – Blending human and AI-generated narratives, refining unique writing styles, and pushing the boundaries of digital storytelling.</li>
+            <li><strong>Diss Track AI</strong> – Developing an AI-powered diss track generator that scrapes online conversations and transforms them into rap battles.</li>
+            <li><strong>Interactive & Generative Media</strong> – Exploring algorithmic art, computational creativity, and AI-assisted storytelling.</li>
+          </ul>
+        </div>
+      </section>
+      
+      {/* Contact Section */}
+      <section className="mb-12">
+        <h2 className="text-2xl font-bold mb-6">Get in Touch</h2>
+        <div className="prose prose-lg dark:prose-invert mb-8">
+          <p>
+            As a software engineer, AI developer, and multidisciplinary artist, I am passionate about leveraging cutting-edge technology to solve complex problems while exploring the intersection of art and computation.
+          </p>
+          <p>
+            If you're interested in discussing a project, collaboration, or just exchanging ideas about technology, AI, or creative work, I'd love to connect.
+          </p>
+          <p>
+            I am dedicated to leveraging technology to address complex challenges, and I welcome the opportunity to discuss:
+          </p>
+          <ul>
+            <li>Machine Learning projects and implementations</li>
+            <li>Software development best practices</li>
+            <li>Web development with modern frameworks</li>
+            <li>AI integration into existing applications</li>
+            <li>Potential collaborations and opportunities</li>
+          </ul>
+        </div>
+        
+        <div className="card p-6">
+          <h3 className="text-xl font-bold mb-4">Contact Information</h3>
           <div className="flex flex-col space-y-4">
-            <p className="flex items-center"><span className="mr-2">🌐</span><a href="https://www.danielkliewer.com" className="text-primary hover:underline">danielkliewer.com</a></p>
+            <p className="flex items-center"><span className="mr-2">📧</span><a href="mailto:danielkliewer@gmail.com" className="text-primary hover:underline">danielkliewer@gmail.com</a></p>
             <p className="flex items-center"><span className="mr-2">💻</span><a href="https://github.com/kliewerdaniel" className="text-primary hover:underline">github.com/kliewerdaniel</a></p>
+            <p className="flex items-center"><span className="mr-2">🌐</span><a href="https://www.danielkliewer.com" className="text-primary hover:underline">danielkliewer.com</a></p>
             <p className="flex items-center"><span className="mr-2">🤖</span><a href="https://www.reddit.com/user/KonradFreeman" className="text-primary hover:underline">u/KonradFreeman</a></p>
             <p className="flex items-center"><span className="mr-2">📍</span>Austin, Texas, United States</p>
-            <p className="flex items-center"><span className="mr-2">📧</span>danielkliewer@gmail.com</p>
           </div>
         </div>
       </section>
       
-      {/* CTA Section */}
-      <section className="mt-16 text-center">
-        <h2 className="text-2xl font-bold mb-4">Interested in working together?</h2>
-        <p className="text-lg mb-6 max-w-2xl mx-auto">
-          I&apos;m always open to discussing new projects, creative ideas, or opportunities to collaborate on innovative solutions.
-        </p>
-        <Link href="/contact" className="btn btn-primary">
-          Get In Touch
-        </Link>
+      {/* Copyright Section */}
+      <section className="mt-16 text-center text-sm text-muted-foreground">
+        <p>© 2025 Daniel Kliewer. All rights reserved.</p>
       </section>
     </div>
   );

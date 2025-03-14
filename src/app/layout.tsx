@@ -219,11 +219,6 @@ function Header() {
                 Art
               </Link>
             </li>
-            <li>
-              <Link href="/contact" className="mobile-link">
-                Contact
-              </Link>
-            </li>
           </ul>
         </nav>
         
@@ -248,11 +243,6 @@ function Header() {
             <li>
               <Link href="/art" className="hover:text-primary transition-colors text-base">
                 Art
-              </Link>
-            </li>
-            <li>
-              <Link href="/contact" className="hover:text-primary transition-colors text-base">
-                Contact
               </Link>
             </li>
           </ul>
