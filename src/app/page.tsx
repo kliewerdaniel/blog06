@@ -1,27 +1,28 @@
 import Link from "next/link";
+import Image from "next/image";
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Daniel Kliewer | Software Engineer & AI Developer Portfolio",
-  description: "Explore Daniel Kliewer's portfolio of AI development and software engineering projects. Specializing in LLMs, Next.js, React, and privacy-focused AI solutions that prioritize user control.",
-  keywords: "Daniel Kliewer, software engineer, AI developer, large language models, LLM, Next.js, React, Python, JavaScript, TypeScript, portfolio, AI projects, privacy-focused AI",
+  title: "Daniel Kliewer | AI Artist & Creative Technologist",
+  description: "Explore Daniel Kliewer's portfolio of AI art and creative technology projects. Blending technology with artistic vision to create innovative AI-powered experiences that challenge perspectives.",
+  keywords: "Daniel Kliewer, AI artist, creative technologist, generative art, large language models, LLM, AI tools, digital art, AI-powered art, Next.js, React, Python, JavaScript, portfolio, art projects, AI medium",
   authors: [{ name: "Daniel Kliewer" }],
   creator: "Daniel Kliewer",
   publisher: "Daniel Kliewer",
   openGraph: {
-    title: "Daniel Kliewer | Software Engineer & AI Developer",
-    description: "Explore Daniel Kliewer's portfolio of AI development and software engineering projects. Specializing in LLMs, Next.js, React, and privacy-focused AI solutions that prioritize user control.",
+    title: "Daniel Kliewer | AI Artist & Creative Technologist",
+    description: "Explore Daniel Kliewer's portfolio of AI art and creative technology projects. Blending technology with artistic vision to create innovative AI-powered experiences that challenge perspectives.",
     url: "https://danielkliewer.com",
-    siteName: "Daniel Kliewer | Software Engineer & AI Developer",
+    siteName: "Daniel Kliewer | AI Artist & Creative Technologist",
     images: [
       {
-        url: "/og-image.jpg", // Add a proper OG image in the public folder
+        url: "/self.jpg", 
         width: 1200,
         height: 630,
-        alt: "Daniel Kliewer - Software Engineer & AI Developer",
+        alt: "Daniel Kliewer - AI Artist & Creative Technologist",
       },
     ],
     locale: "en_US",
@@ -29,9 +30,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Daniel Kliewer | Software Engineer & AI Developer",
-    description: "Explore Daniel Kliewer's portfolio of AI development and software engineering projects. Specializing in LLMs, Next.js, React, and privacy-focused AI solutions.",
-    images: ["/og-image.jpg"], // Add a proper Twitter card image in the public folder
+    title: "Daniel Kliewer | AI Artist & Creative Technologist",
+    description: "Explore Daniel Kliewer's portfolio of AI art and creative technology projects. Blending technology with artistic vision to create innovative AI-powered experiences.",
+    images: ["/self.jpg"],
   },
   alternates: {
     canonical: "https://danielkliewer.com",
@@ -172,24 +173,35 @@ export default async function Home() {
       {/* Hero Section - Moved to the top */}
       <section className="flex flex-col items-center text-center mb-16">
         <div className="max-w-3xl">
+          <div className="mb-8 relative w-48 h-48 mx-auto rounded-full overflow-hidden border-4 border-primary/20">
+            <Image 
+              src="/self.jpg" 
+              alt="Daniel Kliewer - AI Artist & Creative Technologist"
+              fill
+              style={{ objectFit: 'cover' }}
+              priority
+            />
+          </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
             Daniel Kliewer
           </h1>
           <h2 className="text-2xl md:text-3xl text-primary mb-6">
-            Software Engineer & AI Developer
+            AI Artist & Creative Technologist
           </h2>
           <div className="bg-secondary/20 p-6 rounded-lg mb-8 border border-secondary/30">
-            <p className="text-lg italic mb-2">👋 Welcome to my digital home!</p>
+            <p className="text-lg italic mb-2">👋 Welcome to my creative studio!</p>
             <p className="text-md">
-              Thanks for stopping by. I'm passionate about building technology that makes AI more accessible, 
-              ethical, and human-centered. Whether you're here to explore my projects, read my latest thoughts, 
-              or connect professionally, I'm glad you're here.
+              Thanks for stopping by. I explore the intersection of art and artificial intelligence, 
+              using AI as both medium and collaborator. My work challenges traditional notions 
+              of creativity while exploring the evolving relationship between humans and machines.
             </p>
           </div>
           <p className="text-lg text-muted-foreground mb-8">
-            I build innovative applications that leverage the power of large language models
-            and modern web technologies to create useful tools and platforms.
-            My focus is on creating accessible AI solutions that prioritize privacy and user control.
+            I create art and experiences that leverage the power of large language models and generative 
+            AI. Through my work, I investigate themes of digital identity, algorithmic creativity, and 
+            the blurred boundaries between human and machine artistic expression. My approach balances 
+            technological innovation with artistic vision, creating works that are both conceptually rich 
+            and technically sophisticated.
           </p>
           <div className="flex gap-4 flex-wrap justify-center">
             <Link 

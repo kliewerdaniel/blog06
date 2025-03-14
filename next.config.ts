@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   // Force consistent output regardless of environment to avoid hydration mismatches
   output: "export",
   
+  // Configure images to work with export
+  images: {
+    unoptimized: true,
+  },
+  
   // Optimize for production builds and consistent CSS handling
   productionBrowserSourceMaps: false,
   
