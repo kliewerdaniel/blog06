@@ -173,7 +173,7 @@ export default function RootLayout({
         {/* Component to track page views across route changes */}
         <AnalyticsTracker />
         <Header />
-        <main>{children}</main>
+        <main className="content-area">{children}</main>
         <Footer />
       </body>
     </html>

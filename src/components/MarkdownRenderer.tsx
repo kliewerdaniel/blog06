@@ -112,7 +112,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   }, [content]);
 
   return (
-    <div ref={containerRef} className={`prose prose-lg dark:prose-invert max-w-none ${className}`}>
+    <div ref={containerRef} className={`prose prose-lg dark:prose-invert max-w-none ${className}`} style={{ lineHeight: 'var(--line-height-relaxed)' }}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[
