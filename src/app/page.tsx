@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: "google-site-verification-code", // Replace with actual verification code if available
+    google: "GTM-T5J5JWX", // Replace with actual verification code if available
   },
 };
 
@@ -189,7 +189,7 @@ export default async function Home() {
             AI Artist & Creative Technologist
           </h2>
           <div className="bg-secondary/20 p-6 rounded-lg mb-8 border border-secondary/30">
-            <p className="text-lg italic mb-2">👋 Welcome to my creative studio!</p>
+            <p className="text-lg italic mb-2"> Welcome to my creative studio!</p>
             <p className="text-md">
               Thanks for stopping by. I explore the intersection of art and artificial intelligence, 
               using AI as both medium and collaborator. My work challenges traditional notions 
@@ -217,8 +217,6 @@ export default async function Home() {
           </div>
         </div>
       </section>
-     {/* Featured Projects Section */}      {/* Featured Projects Slider - Using the previous slider component */}
-      <ContentSlider posts={projectsForSlider} />
 
       {/* Recent Blog Posts Section */}
       <section className="mb-20">
