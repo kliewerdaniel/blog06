@@ -209,7 +209,11 @@ export default async function Home() {
               className="btn btn-primary">
               Read My Blog
             </Link>
-            
+            <Link 
+              href="/contact" 
+              className="btn btn-outline">
+              Get In Touch
+            </Link>
           </div>
         </div>
       </section>

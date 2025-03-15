@@ -6,8 +6,8 @@
   --background: #ffffff;
   --foreground: #171717;
   
-  /* Primary Color - Deep Blue */
-  --primary: #2563eb;
+  /* Primary Color - Blue */
+  --primary: #3b82f6;
   --primary-50: #eff6ff;
   --primary-100: #dbeafe;
   --primary-200: #bfdbfe;
@@ -19,8 +19,8 @@
   --primary-800: #1e40af;
   --primary-900: #1e3a8a;
   
-  /* Secondary Color - Rich Purple */
-  --secondary: #7c3aed;
+  /* Secondary Color - Purple */
+  --secondary: #8b5cf6;
   --secondary-50: #f5f3ff;
   --secondary-100: #ede9fe;
   --secondary-200: #ddd6fe;
@@ -32,8 +32,8 @@
   --secondary-800: #5b21b6;
   --secondary-900: #4c1d95;
   
-  /* Accent Color - Vibrant Teal */
-  --accent: #0891b2;
+  /* Accent Color - Teal */
+  --accent: #06b6d4;
   --accent-50: #ecfeff;
   --accent-100: #cffafe;
   --accent-200: #a5f3fc;
@@ -50,7 +50,7 @@
   --muted-foreground: #6b7280;
   --border: #e5e7eb;
   --input: #e5e7eb;
-  --ring: rgba(37, 99, 235, 0.4);
+  --ring: rgba(59, 130, 246, 0.3);
   
   /* System Colors */
   --success: #10b981;
@@ -62,11 +62,6 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
-  --line-height-tight: 1.3;  /* Increased from 1.2 for better readability */
-  --line-height-normal: 1.7;  /* Increased from 1.6 for better readability */
-  --line-height-relaxed: 1.85; /* Added for content-heavy areas */
-  --letter-spacing-tight: -0.02em;
-  --letter-spacing-normal: 0;
   
   /* Spacing - Using 8px increments */
   --space-1: 0.25rem;  /* 4px */
@@ -117,10 +112,10 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
-    --foreground: #f8f8f8;
+    --foreground: #ededed;
     
     /* Adjusting primary, secondary, and accent for dark mode */
-    --primary: #3b82f6;
+    --primary: #60a5fa;
     --primary-50: #172554;
     --primary-100: #1e3a8a;
     --primary-200: #1e40af;
@@ -132,7 +127,7 @@
     --primary-800: #bfdbfe;
     --primary-900: #dbeafe;
     
-    --secondary: #8b5cf6;
+    --secondary: #a78bfa;
     --secondary-50: #2e1065;
     --secondary-100: #4c1d95;
     --secondary-200: #5b21b6;
@@ -144,7 +139,7 @@
     --secondary-800: #ddd6fe;
     --secondary-900: #ede9fe;
     
-    --accent: #06b6d4;
+    --accent: #22d3ee;
     --accent-50: #083344;
     --accent-100: #164e63;
     --accent-200: #155e75;
@@ -161,7 +156,7 @@
     --muted-foreground: #a1a1aa;
     --border: #2e2e2e;
     --input: #2e2e2e;
-    --ring: rgba(59, 130, 246, 0.6);
+    --ring: rgba(59, 130, 246, 0.5);
   }
 }
 
@@ -175,138 +170,66 @@ html {
   text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-size: 16px; /* Base font size */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  line-height: var(--line-height-normal);
+  line-height: 1.6;  /* Standard line height for body text (1.6) */
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  font-size: 1.125rem; /* Increased from 1rem (16px) to 1.125rem (18px) */
+  font-size: 16px;
   transition: background-color var(--transition-duration) var(--transition-timing),
               color var(--transition-duration) var(--transition-timing);
-}
-
-/* Base text adjustments */
-article, main, .content-area {
-  font-size: 1.125rem;
-  line-height: var(--line-height-relaxed);
-}
-
-/* Article-specific styling for better readability */
-.prose-article {
-  font-size: 1.125rem;
-  line-height: var(--line-height-relaxed);
-  letter-spacing: 0.01em;
-}
-
-.prose-article p {
-  margin-bottom: 1.75em;
-  max-width: 75ch;
-}
-
-.prose-article h1 {
-  font-size: 2.75rem;
-  line-height: 1.2;
-  margin-bottom: 1rem;
-  letter-spacing: -0.02em;
-}
-
-.prose-article h2 {
-  font-size: 2.25rem;
-  line-height: 1.25;
-  margin-top: 2.5rem;
-  margin-bottom: 1rem;
-  letter-spacing: -0.015em;
-}
-
-.prose-article h3 {
-  font-size: 1.75rem;
-  line-height: 1.3;
-  margin-top: 2rem;
-  margin-bottom: 0.75rem;
-}
-
-.prose-article h4 {
-  font-size: 1.5rem;
-  line-height: 1.35;
-  margin-top: 1.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.prose-article ul, .prose-article ol {
-  padding-left: 1.5rem;
-  margin-bottom: 1.75em;
-}
-
-.prose-article li {
-  margin-bottom: 0.5em;
-}
-
-.prose-article blockquote {
-  font-size: 1.1rem;
-  line-height: 1.75;
-  padding-left: 1.5rem;
 }
 
 /* Typography with clear hierarchy */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
-  line-height: var(--line-height-tight);
-  font-weight: 700;
+  line-height: 1.2;
+  font-weight: 600;
   margin-top: 1.5em;
-  margin-bottom: 0.6em; /* Slightly increased */
+  margin-bottom: 0.5em;
   color: var(--foreground);
-  letter-spacing: var(--letter-spacing-tight);
 }
 
 h1 {
-  font-size: 2.75rem; /* Increased from 2.5rem */
+  font-size: 2.25rem; /* 36px */
   margin-bottom: var(--space-6);
-  line-height: 1.2; /* Specific line height for h1 */
 }
 
 h2 {
-  font-size: 2.25rem; /* Increased from 2rem */
+  font-size: 1.875rem; /* 30px */
   margin-bottom: var(--space-4);
-  line-height: 1.25; /* Specific line height for h2 */
 }
 
 h3 {
-  font-size: 1.75rem; /* Increased from 1.5rem */
+  font-size: 1.5rem; /* 24px */
   margin-bottom: var(--space-3);
-  line-height: 1.3; /* Specific line height for h3 */
 }
 
 h4 {
-  font-size: 1.5rem; /* Increased from 1.25rem */
+  font-size: 1.25rem; /* 20px */
   margin-bottom: var(--space-2);
-  line-height: 1.35; /* Specific line height for h4 */
 }
 
 h5 {
-  font-size: 1.25rem; /* Increased from 1.125rem */
+  font-size: 1.125rem; /* 18px */
   margin-bottom: var(--space-2);
-  line-height: 1.4; /* Specific line height for h5 */
 }
 
 h6 {
-  font-size: 1.125rem; /* Increased from 1rem */
+  font-size: 1rem; /* 16px */
   margin-bottom: var(--space-2);
-  line-height: 1.45; /* Specific line height for h6 */
 }
 
 /* Paragraphs with consistent spacing */
 p {
   margin-top: 0;
-  margin-bottom: 1.65em; /* Increased from 1.5em */
-  line-height: var(--line-height-relaxed); /* Using relaxed line height */
-  letter-spacing: var(--letter-spacing-normal);
-  max-width: 75ch; /* Limits line length for better readability */
+  margin-bottom: 1.5em; /* 1.5em spacing between paragraphs */
+  line-height: 1.6; /* Consistent line height */
 }
 
 /* Links */
@@ -315,12 +238,11 @@ a {
   text-decoration: none;
   transition: color var(--transition-duration) var(--transition-timing);
   /* Enhanced for accessibility */
-  text-underline-offset: 0.25em; /* Increased from 0.2em */
-  font-weight: 500;
+  text-underline-offset: 0.2em;
 }
 
 a:hover {
-  color: var(--primary-700);
+  color: var(--primary-600);
   text-decoration: underline;
 }
 
@@ -339,20 +261,19 @@ img, svg, video {
 /* Code and Pre Blocks */
 code, pre, kbd {
   font-family: var(--font-mono);
-  font-size: 0.925em; /* Increased from 0.9em */
+  font-size: 0.9em;
 }
 
 code {
   background-color: var(--muted);
   padding: 0.2em 0.4em;
   border-radius: var(--radius-md);
-  color: var(--primary-600);
-  font-weight: 500;
+  color: var(--foreground);
 }
 
 pre {
   overflow-x: auto;
-  background-color: #1e1e1e; /* Consistent with codeHighlight.css */
+  background-color: var(--muted);
   padding: var(--space-4);
   border-radius: var(--radius);
   margin-bottom: var(--space-6);
@@ -361,7 +282,6 @@ pre {
 pre code {
   background-color: transparent;
   padding: 0;
-  color: #d4d4d4; /* Consistent with codeHighlight.css */
 }
 
 kbd {
@@ -374,15 +294,14 @@ kbd {
 
 /* Quotes */
 blockquote {
-  border-left: 4px solid var(--primary-400);
+  border-left: 4px solid var(--border);
   margin-left: 0;
   margin-right: 0;
   padding: var(--space-4) var(--space-6);
-  color: var(--foreground);
+  color: var(--muted-foreground);
   background-color: var(--muted);
   border-radius: 0 var(--radius) var(--radius) 0;
   margin-bottom: var(--space-6);
-  font-style: italic;
 }
 
 blockquote p:last-child {
@@ -873,23 +792,15 @@ label {
 /* Responsive Utilities */
 @media (max-width: 640px) {
   h1 {
-    font-size: 2.25rem; /* Increased from 2rem */
-    line-height: 1.2;
+    font-size: 2rem;
   }
   
   h2 {
-    font-size: 1.75rem; /* Increased from 1.5rem */
-    line-height: 1.25;
+    font-size: 1.5rem;
   }
   
   h3 {
-    font-size: 1.5rem; /* Increased from 1.25rem */
-    line-height: 1.3;
-  }
-  
-  h4 {
     font-size: 1.25rem;
-    line-height: 1.35;
   }
   
   .container {
@@ -897,13 +808,9 @@ label {
   }
   
   /* Adjust text size for better readability */
-  body {
-    font-size: 1.0625rem; /* 17px instead of 16px */
-  }
-  
-  p, article, main, .content-area {
-    font-size: 1.0625rem; /* 17px */
-    line-height: 1.75;
+  body, p {
+    font-size: 16px;
+    line-height: 1.6;
   }
 }
 
@@ -932,34 +839,16 @@ label {
     padding: 0 4rem;
   }
   
-  /* Larger font sizes for large screens */
   h1 {
-    font-size: 3.25rem; /* Increased from 3rem */
-    line-height: 1.1;
+    font-size: 3rem;
   }
   
   h2 {
-    font-size: 2.5rem; /* Increased from 2.25rem */
-    line-height: 1.2;
+    font-size: 2.25rem;
   }
   
   h3 {
-    font-size: 2rem; /* Increased from 1.75rem */
-    line-height: 1.25;
-  }
-  
-  h4 {
     font-size: 1.75rem;
-    line-height: 1.3;
-  }
-  
-  body {
-    font-size: 1.125rem; /* 18px */
-  }
-  
-  p, article, main, .content-area {
-    font-size: 1.125rem; /* 18px */
-    line-height: var(--line-height-relaxed);
   }
 }
 

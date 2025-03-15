@@ -70,9 +70,9 @@ const BlogCard: React.FC<BlogCardProps> = ({ post, content = '' }) => {
             ))}
           </div>
         )}
-        <h3 className="text-xl font-bold mb-2 line-clamp-2 leading-snug">{post.title}</h3>
-        <p className="text-muted-foreground mb-3 line-clamp-2 text-sm leading-relaxed">{excerpt}</p>
-        <div className="flex justify-between items-center text-sm text-muted-foreground">
+        <h3 className="text-xl font-bold mb-2 line-clamp-2">{post.title}</h3>
+        <p className="text-muted-foreground mb-3 line-clamp-2 text-sm">{excerpt}</p>
+        <div className="flex justify-between items-center text-xs text-muted-foreground">
           <time dateTime={new Date(post.date).toISOString()}>{formattedDate}</time>
           <span>{readingTime}</span>
         </div>

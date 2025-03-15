@@ -217,7 +217,7 @@ export default function BlogPost({ params }: BlogPostProps) {
         {/* Breadcrumb Navigation */}
         <BreadcrumbNavigation items={breadcrumbItems} />
         
-        <article className="max-w-3xl mx-auto prose-article">
+        <article className="max-w-3xl mx-auto">
           <header className="mb-8">
             {categories.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-2">
