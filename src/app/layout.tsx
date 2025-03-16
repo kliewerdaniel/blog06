@@ -93,244 +93,38 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* JavaScript Error Fix - Prevents "eP[i] is not a function" error */}
+        {/* Simple error fix - just catch the animation frame errors */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
             /**
-             * Enhanced fix for "eP[i] is not a function" error with animation frame handling
+             * Simple fix for "eP[i] is not a function" error in animation frames
              */
             (function() {
-                console.log("[Animation Fix] Initializing enhanced error prevention script");
+                console.log("[Animation Fix] Initializing simple error prevention");
                 
-                // Store original methods
+                // Store original method
                 const originalRequestAnimationFrame = window.requestAnimationFrame;
                 
-                // Function to safely check if an item is a valid function
-                function ensureFunctionSafety() {
-                    console.log("[Animation Fix] Setting up function safety protections");
-                    
-                    // Protect animation frame handling with improved error prevention
-                    window.requestAnimationFrame = function(callback) {
-                        // Wrap the callback in a try-catch to prevent errors from bubbling up
-                        const safeCallback = function(timestamp) {
-                            try {
-                                return callback(timestamp);
-                            } catch (error) {
-                                // More specific error detection
-                                if (error.message && (
-                                    error.message.includes('is not a function') ||
-                                    error.message.includes('eP[i]') ||
-                                    error.message.includes('undefined is not a function')
-                                )) {
-                                    // Don't log to console to reduce noise - we know what's happening
-                                    // console.warn("[Animation Fix] Caught error in animation frame:", error.message);
-                                    return null;
-                                }
-                                throw error; // Re-throw other errors
+                // Replace with error-catching version
+                window.requestAnimationFrame = function(callback) {
+                    // Wrap the callback in a try-catch
+                    const safeCallback = function(timestamp) {
+                        try {
+                            return callback(timestamp);
+                        } catch (error) {
+                            if (error.message && error.message.includes('is not a function')) {
+                                console.warn("[Animation Fix] Caught error:", error.message);
+                                return null;
                             }
-                        };
-                        
-                        return originalRequestAnimationFrame.call(window, safeCallback);
+                            throw error; // Re-throw other errors
+                        }
                     };
                     
-                    // Add a MutationObserver to watch for script additions and protect hook.js
-                    const observer = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
-                            if (mutation.type === 'childList') {
-                                mutation.addedNodes.forEach(function(node) {
-                                    // Look for script elements being added
-                                    if (node.tagName === 'SCRIPT') {
-                                        // If it's hook.js specifically, we need to apply protection
-                                        if (node.src && node.src.includes('hook.js')) {
-                                            // Add a load event to protect the script after it loads
-                                            node.addEventListener('load', function() {
-                                                // Look for window.hook or similar objects
-                                                setTimeout(function() {
-                                                    for (const key in window) {
-                                                        if (key.includes('hook') || 
-                                                           (typeof window[key] === 'object' && window[key] && window[key].overrideMethod)) {
-                                                            window[key] = createFunctionSafetyProxy(window[key], "window." + key);
-                                                            console.log("[Animation Fix] Applied specific protection to hook.js methods");
-                                                        }
-                                                    }
-                                                }, 0);
-                                            });
-                                        }
-                                    }
-                                });
-                            }
-                        });
-                    });
-                    
-                    // Start observing the document with the configured parameters
-                    observer.observe(document, { childList: true, subtree: true });
-                    
-                    // Create a protective wrapper for problematic objects
-                    function createFunctionSafetyProxy(obj, name) {
-                        if (!obj || typeof obj !== 'object') return obj;
-                        
-                        return new Proxy(obj, {
-                            get: function(target, prop) {
-                                const value = target[prop];
-                                
-                                // Handle the specific case of eP array
-                                if (prop === 'eP' && Array.isArray(value)) {
-                                    console.log("[Animation Fix] Found eP array in " + name + ", applying protection");
-                                    return createArrayFunctionSafetyProxy(value, name + ".eP");
-                                }
-                                
-                                // Handle 'measureInitialState' method
-                                if (prop === 'measureInitialState' && typeof value === 'function') {
-                                    console.log("[Animation Fix] Found measureInitialState in " + name + ", applying protection");
-                                    return function() {
-                                        try {
-                                            return value.apply(this, arguments);
-                                        } catch (error) {
-                                            if (error.message && error.message.includes('is not a function')) {
-                                                console.warn("[Animation Fix] Caught error in " + name + ".measureInitialState:", error.message);
-                                                return null; // Return a safe value instead of failing
-                                            } else {
-                                                throw error; // Re-throw other errors
-                                            }
-                                        }
-                                    };
-                                }
-                                
-                    // Special case for the specific hook.js overrideMethod function
-                    if (prop === 'overrideMethod' && typeof value === 'function') {
-                        console.log("[Animation Fix] Found overrideMethod in " + name + ", applying special protection");
-                        return function() {
-                            try {
-                                // Apply enhanced protection specific to this method
-                                if (arguments[0] && typeof arguments[0] === 'object' && 
-                                    arguments[0].eP && Array.isArray(arguments[0].eP)) {
-                                    // Directly protect the eP array in this context
-                                    arguments[0].eP = createArrayFunctionSafetyProxy(arguments[0].eP, name + ".argument.eP");
-                                }
-                                return value.apply(this, arguments);
-                            } catch (error) {
-                                if (error.message && error.message.includes('is not a function')) {
-                                    // Silently handle this error - we know it's happening
-                                    return null;
-                                } else {
-                                    throw error; // Re-throw other errors
-                                }
-                            }
-                        };
-                    }
-                    
-                    // Handle animation-related methods (expanded to cover more potential issues)
-                    else if ((prop === 'oG' || prop === 'oX' || prop === 'process' || prop === 'm' || 
-                         prop === 'start' || prop === 'scheduleResolve' || prop === 'hook' ||
-                         prop === 'eI' || prop === 'update' || prop === 'render' || 
-                         prop === 'requestAnimationFrame') && typeof value === 'function') {
-                                    return function() {
-                                        try {
-                                            return value.apply(this, arguments);
-                                        } catch (error) {
-                                            if (error.message && error.message.includes('is not a function')) {
-                                                // Silently handle the error - no need to log every time
-                                // console.warn("[Animation Fix] Caught error in " + name + "." + prop + ":", error.message);
-                                                return null;
-                                            } else {
-                                                throw error;
-                                            }
-                                        }
-                                    };
-                                }
-                                
-                                return value;
-                            }
-                        });
-                    }
-                    
-                    // Create a protective wrapper specifically for arrays that might be used as function collections
-                    function createArrayFunctionSafetyProxy(array, name) {
-                        if (!Array.isArray(array)) return array;
-                        
-                        return new Proxy(array, {
-                            get: function(target, prop) {
-                                // If trying to access array element by index
-                                if (!isNaN(parseInt(prop))) {
-                                    const index = parseInt(prop);
-                                    const item = target[index];
-                                    
-                                    // If the item is not a function but might be called as one
-                                    if (item !== undefined && typeof item !== 'function') {
-                            // Don't log to reduce console noise
-                            // console.warn("[Animation Fix] Protection: " + name + "[" + index + "] is not a function (" + (typeof item) + ")");
-                            
-                            // Return a no-op function instead of the non-function item
-                            return function() {
-                                // console.warn("[Animation Fix] Called " + name + "[" + index + "] safely instead of throwing error");
-                                            return null; // Safe return value
-                                        };
-                                    }
-                                }
-                                
-                                return target[prop];
-                            }
-                        });
-                    }
-                    
-                    // Protect the window object and scan for potential issues
-                    setTimeout(function() {
-                        console.log("[Animation Fix] Scanning for problematic objects");
-                        
-                        // Look through window objects for potential matches
-                        for (const key in window) {
-                            try {
-                                if (key.startsWith('__') || key === 'webpackChunk') continue; // Skip special objects
-                                
-                                const obj = window[key];
-                                if (!obj || typeof obj !== 'object') continue;
-                                
-                                // Look for key objects that might match our error pattern
-                                if (typeof obj.measureInitialState === 'function' || 
-                                    (obj.eP && Array.isArray(obj.eP)) ||
-                                    typeof obj.oG === 'function' ||
-                                    typeof obj.oX === 'function' ||
-                                    typeof obj.process === 'function' ||
-                                    typeof obj.scheduleResolve === 'function') {
-                                    console.log("[Animation Fix] Found potential match: window." + key);
-                                    window[key] = createFunctionSafetyProxy(obj, "window." + key);
-                                }
-                                
-                                // Also look for objects named with minified-style keys (common in bundled code)
-                                if ((/^[a-zA-Z]{1,2}$/.test(key) || /^[a-zA-Z][A-Z]$/.test(key)) && typeof obj === 'object') {
-                                    window[key] = createFunctionSafetyProxy(obj, "window." + key);
-                                }
-                                
-                                // Specifically target hook.js related objects (based on error trace)
-                                if (key.includes('hook') || (typeof obj === 'object' && obj.overrideMethod)) {
-                                    console.log("[Animation Fix] Found hook-related object: window." + key);
-                                    window[key] = createFunctionSafetyProxy(obj, "window." + key);
-                                }
-                            } catch (e) {
-                                // Skip objects that can't be accessed
-                            }
-                        }
-                        
-                        console.log("[Animation Fix] Finished scanning for problematic objects");
-                    }, 0);
-                }
+                    return originalRequestAnimationFrame.call(window, safeCallback);
+                };
                 
-                // Start the protection immediately
-                ensureFunctionSafety();
-                
-                // Also run after DOM is loaded to catch any objects initialized later
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', ensureFunctionSafety);
-                }
-                
-                // Add additional safety by running after window load
-                window.addEventListener('load', ensureFunctionSafety);
-                
-                // Run one more time after a short delay to catch dynamically loaded scripts
-                setTimeout(ensureFunctionSafety, 2000);
-                
-                console.log("[Animation Fix] Fix script installed successfully");
+                console.log("[Animation Fix] Simple fix installed successfully");
             })();
             `
           }}
