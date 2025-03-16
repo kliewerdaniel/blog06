@@ -110,14 +110,19 @@ export default function RootLayout({
                 function ensureFunctionSafety() {
                     console.log("[Animation Fix] Setting up function safety protections");
                     
-                    // Protect animation frame handling
+                    // Protect animation frame handling with improved error prevention
                     window.requestAnimationFrame = function(callback) {
                         // Wrap the callback in a try-catch to prevent errors from bubbling up
                         const safeCallback = function(timestamp) {
                             try {
                                 return callback(timestamp);
                             } catch (error) {
-                                if (error.message && error.message.includes('is not a function')) {
+                                // More specific error detection
+                                if (error.message && (
+                                    error.message.includes('is not a function') ||
+                                    error.message.includes('eP[i]') ||
+                                    error.message.includes('undefined is not a function')
+                                )) {
                                     console.warn("[Animation Fix] Caught error in animation frame:", error.message);
                                     return null;
                                 }
@@ -159,9 +164,11 @@ export default function RootLayout({
                                     };
                                 }
                                 
-                                // Handle animation-related methods (based on the stack trace)
+                                // Handle animation-related methods (expanded to cover more potential issues)
                                 if ((prop === 'oG' || prop === 'oX' || prop === 'process' || prop === 'm' || 
-                                     prop === 'start' || prop === 'scheduleResolve') && typeof value === 'function') {
+                                     prop === 'start' || prop === 'scheduleResolve' || prop === 'hook' ||
+                                     prop === 'overrideMethod' || prop === 'eI' || prop === 'update' ||
+                                     prop === 'render' || prop === 'requestAnimationFrame') && typeof value === 'function') {
                                     return function() {
                                         try {
                                             return value.apply(this, arguments);
@@ -232,8 +239,14 @@ export default function RootLayout({
                                     window[key] = createFunctionSafetyProxy(obj, "window." + key);
                                 }
                                 
-                                // Also look for objects named with single-letter or two-letter keys (common in minified code)
-                                if (/^[a-zA-Z]{1,2}$/.test(key) && typeof obj === 'object') {
+                                // Also look for objects named with minified-style keys (common in bundled code)
+                                if ((/^[a-zA-Z]{1,2}$/.test(key) || /^[a-zA-Z][A-Z]$/.test(key)) && typeof obj === 'object') {
+                                    window[key] = createFunctionSafetyProxy(obj, "window." + key);
+                                }
+                                
+                                // Specifically target hook.js related objects (based on error trace)
+                                if (key.includes('hook') || (typeof obj === 'object' && obj.overrideMethod)) {
+                                    console.log("[Animation Fix] Found hook-related object: window." + key);
                                     window[key] = createFunctionSafetyProxy(obj, "window." + key);
                                 }
                             } catch (e) {
@@ -252,6 +265,12 @@ export default function RootLayout({
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', ensureFunctionSafety);
                 }
+                
+                // Add additional safety by running after window load
+                window.addEventListener('load', ensureFunctionSafety);
+                
+                // Run one more time after a short delay to catch dynamically loaded scripts
+                setTimeout(ensureFunctionSafety, 2000);
                 
                 console.log("[Animation Fix] Fix script installed successfully");
             })();
