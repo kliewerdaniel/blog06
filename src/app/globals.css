@@ -884,3 +884,8 @@ label {
     scroll-behavior: auto !important;
   }
 }
+
+/* Geometric animated background styles */
+.clip-triangle {
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}

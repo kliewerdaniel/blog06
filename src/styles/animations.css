@@ -1,0 +1,314 @@
+/* Base Animation Variables */
+:root {
+  --animation-timing-fast: 150ms;
+  --animation-timing-standard: 250ms;
+  --animation-timing-slow: 450ms;
+  --animation-easing-bounce: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --animation-easing-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --animation-easing-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --animation-easing-swift: cubic-bezier(0.55, 0, 0.1, 1);
+  --animation-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  --animation-easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* ===== Link Animations ===== */
+.link-animate {
+  position: relative;
+}
+
+.link-animate::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -2px;
+  left: 0;
+  background-color: var(--primary);
+  transition: width var(--animation-timing-standard) var(--animation-easing-smooth);
+}
+
+.link-animate:hover::after {
+  width: 100%;
+}
+
+/* Animated navigation links */
+header nav a {
+  position: relative;
+  overflow: hidden;
+}
+
+header nav a::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background-color: var(--primary);
+  transition: width var(--animation-timing-standard) var(--animation-easing-smooth), 
+              left var(--animation-timing-standard) var(--animation-easing-smooth);
+}
+
+header nav a:hover::after {
+  width: 100%;
+  left: 0;
+}
+
+/* ===== Button Animations ===== */
+.btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width var(--animation-timing-standard) var(--animation-easing-decelerate),
+              height var(--animation-timing-standard) var(--animation-easing-decelerate);
+  z-index: 0;
+}
+
+.btn:hover::before {
+  width: 300%;
+  height: 300%;
+}
+
+.btn-primary, .btn-secondary, .btn-accent {
+  transition: transform var(--animation-timing-fast) var(--animation-easing-bounce),
+              box-shadow var(--animation-timing-fast) var(--animation-easing-bounce),
+              background-color var(--animation-timing-standard) var(--animation-easing-smooth);
+}
+
+.btn-primary:hover, .btn-secondary:hover, .btn-accent:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:active, .btn-secondary:active, .btn-accent:active {
+  transform: translateY(1px);
+}
+
+/* ===== Card Animations ===== */
+.card {
+  transition: transform var(--animation-timing-standard) var(--animation-easing-smooth),
+              box-shadow var(--animation-timing-standard) var(--animation-easing-smooth);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.1);
+}
+
+.card-zoom-image {
+  overflow: hidden;
+}
+
+.card-zoom-image img {
+  transition: transform var(--animation-timing-slow) var(--animation-easing-smooth);
+}
+
+.card-zoom-image:hover img {
+  transform: scale(1.05);
+}
+
+/* ===== Badge Animations ===== */
+.badge {
+  transition: transform var(--animation-timing-fast) var(--animation-easing-bounce);
+}
+
+.badge:hover {
+  transform: translateY(-1px);
+}
+
+/* ===== Form Element Animations ===== */
+input, textarea, select {
+  transition: border-color var(--animation-timing-standard) var(--animation-easing-smooth),
+              box-shadow var(--animation-timing-standard) var(--animation-easing-smooth),
+              background-color var(--animation-timing-standard) var(--animation-easing-smooth);
+}
+
+input:focus, textarea:focus, select:focus {
+  animation: form-focus-pulse 1.5s var(--animation-easing-smooth) 1;
+}
+
+@keyframes form-focus-pulse {
+  0% { box-shadow: 0 0 0 0 var(--ring); }
+  70% { box-shadow: 0 0 0 4px var(--ring); }
+  100% { box-shadow: 0 0 0 2px var(--ring); }
+}
+
+/* ===== Icon Animations ===== */
+footer a svg, 
+.social-icon svg {
+  transition: transform var(--animation-timing-standard) var(--animation-easing-spring), 
+              color var(--animation-timing-standard) var(--animation-easing-smooth);
+}
+
+footer a:hover svg,
+.social-icon:hover svg {
+  transform: scale(1.2);
+}
+
+/* ===== Copy Button Animation ===== */
+button[aria-label="Copy code to clipboard"] {
+  position: relative;
+  overflow: hidden;
+}
+
+button[aria-label="Copy code to clipboard"]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s var(--animation-easing-smooth);
+}
+
+button[aria-label="Copy code to clipboard"]:hover::before {
+  left: 100%;
+}
+
+/* Success animation for copy button */
+@keyframes success-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.success-pulse {
+  animation: success-pulse var(--animation-timing-standard) var(--animation-easing-bounce);
+}
+
+/* ===== Mobile Navigation Animations ===== */
+.hamburger-line {
+  transition: transform var(--animation-timing-standard) var(--animation-easing-smooth),
+              opacity var(--animation-timing-standard) var(--animation-easing-smooth);
+}
+
+.nav-toggle:checked + .nav-toggle-label .hamburger-line:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.nav-toggle:checked + .nav-toggle-label .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+
+.nav-toggle:checked + .nav-toggle-label .hamburger-line:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+}
+
+.mobile-menu {
+  transform-origin: top center;
+  transition: transform var(--animation-timing-standard) var(--animation-easing-bounce),
+              opacity var(--animation-timing-standard) var(--animation-easing-smooth);
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+.nav-toggle:checked ~ .mobile-menu {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ===== Page Transition Animations ===== */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from { 
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scale-in {
+  from { 
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to { 
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Animation utility classes */
+.animate-fade-in {
+  animation: fade-in var(--animation-timing-standard) var(--animation-easing-smooth) forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up var(--animation-timing-standard) var(--animation-easing-smooth) forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right var(--animation-timing-standard) var(--animation-easing-smooth) forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in var(--animation-timing-standard) var(--animation-easing-bounce) forwards;
+}
+
+/* Staggered animations for lists */
+@media (prefers-reduced-motion: no-preference) {
+  .stagger-animation > * {
+    opacity: 0;
+    animation: fade-in var(--animation-timing-standard) var(--animation-easing-smooth) forwards;
+  }
+  
+  .stagger-animation > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-animation > *:nth-child(2) { animation-delay: 50ms; }
+  .stagger-animation > *:nth-child(3) { animation-delay: 100ms; }
+  .stagger-animation > *:nth-child(4) { animation-delay: 150ms; }
+  .stagger-animation > *:nth-child(5) { animation-delay: 200ms; }
+  .stagger-animation > *:nth-child(6) { animation-delay: 250ms; }
+  .stagger-animation > *:nth-child(7) { animation-delay: 300ms; }
+  .stagger-animation > *:nth-child(8) { animation-delay: 350ms; }
+  .stagger-animation > *:nth-child(9) { animation-delay: 400ms; }
+  .stagger-animation > *:nth-child(10) { animation-delay: 450ms; }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

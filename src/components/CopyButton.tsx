@@ -78,7 +78,7 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
       className={`
         fixed z-10 p-2 rounded-md transition-all duration-200 
         ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'}
-        ${copied ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'}
+        ${copied ? 'bg-green-600 text-white success-pulse' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'}
       `}
       aria-label="Copy code to clipboard"
     >

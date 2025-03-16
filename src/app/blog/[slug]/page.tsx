@@ -9,6 +9,7 @@ import BreadcrumbNavigation from "@/components/BreadcrumbNavigation";
 import RelatedPosts from "@/components/RelatedPosts";
 import SocialShare from "@/components/SocialShare";
 import { RelatedPost } from "@/types/blog";
+import PageTransition from "@/components/PageTransition";
 
 type Props = {
   params: { slug: string };
@@ -203,6 +204,7 @@ export default function BlogPost({ params }: BlogPostProps) {
     ];
     
     return (
+    <PageTransition transitionType="fade">
       <div className="container mx-auto px-4 py-12">
         <BlogJsonLd 
           title={title}
@@ -308,10 +310,12 @@ export default function BlogPost({ params }: BlogPostProps) {
           </div>
         </article>
       </div>
+    </PageTransition>
     );
   } catch {
     // Removed unused 'error' variable
     return (
+    <PageTransition transitionType="fade">
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-8">Post Not Found</h1>
         <p>Sorry, the blog post you&apos;re looking for does not exist.</p>
@@ -319,6 +323,7 @@ export default function BlogPost({ params }: BlogPostProps) {
           ← Back to Blog
         </Link>
       </div>
+    </PageTransition>
     );
   }
 }

@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import PageTransition from "@/components/PageTransition";
 
 // Separate viewport export as recommended by Next.js
 export const viewport = {
@@ -31,7 +32,8 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="container mx-auto px-4 py-12">
+    <PageTransition transitionType="fade">
+      <div className="container mx-auto px-4 py-12">
       <h1 className="text-4xl font-bold mb-8">About Me</h1>
       
       {/* Professional Overview */}
@@ -271,6 +273,7 @@ export default function AboutPage() {
       <section className="mt-16 text-center text-sm text-muted-foreground">
         <p>© 2025 Daniel Kliewer. All rights reserved.</p>
       </section>
-    </div>
+      </div>
+    </PageTransition>
   );
 }

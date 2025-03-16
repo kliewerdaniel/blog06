@@ -4,6 +4,9 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { Metadata } from "next";
+import PageTransition from "@/components/PageTransition";
+import ContentSlider from '@/components/ContentSlider';
+import ClientHomePage from './page.client';
 
 export const metadata: Metadata = {
   title: "Daniel Kliewer | AI Artist & Creative Technologist",
@@ -126,11 +129,9 @@ const projects = [
   }
 ];
 
-import ContentSlider from '@/components/ContentSlider';
-
 export default async function Home() {
-  // Get recent posts for the grid (first 6 posts)
-  const recentPosts = await getBlogPosts(6);
+  // Get recent posts for the grid (first 4 posts)
+  const recentPosts = await getBlogPosts(4);
   
   // Convert projects to a format compatible with ContentSlider
   const projectsForSlider = projects.map(project => ({
@@ -138,9 +139,7 @@ export default async function Home() {
     title: project.title,
     excerpt: project.description,
     categories: project.technologies,
-    // Add required date field for PostMetadata type compatibility
     date: new Date().toISOString(),
-    // Use undefined instead of null for image to match the type definition
     image: undefined
   }));
   
@@ -166,108 +165,16 @@ export default async function Home() {
   // Convert the map to an array of technology objects
   const technologies = Array.from(technologyMap.entries())
     .map(([name, count]) => ({ name, count }))
-    .filter(tech => tech.count > 0);
+    .filter(tech => tech.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12); // Only take top 12 technologies
   
+  // Pass the data to the client component
   return (
-    <div className="container mx-auto px-4 py-12">
-      {/* Hero Section - Moved to the top */}
-      <section className="flex flex-col items-center text-center mb-16">
-        <div className="max-w-3xl">
-          <div className="mb-8 relative w-48 h-48 mx-auto rounded-full overflow-hidden border-4 border-primary/20">
-            <Image 
-              src="/self.jpg" 
-              alt="Daniel Kliewer - AI Artist & Creative Technologist"
-              fill
-              style={{ objectFit: 'cover' }}
-              priority
-            />
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            Daniel Kliewer
-          </h1>
-          <h2 className="text-2xl md:text-3xl text-primary mb-6">
-            AI Artist & Creative Technologist
-          </h2>
-          <div className="bg-secondary/20 p-6 rounded-lg mb-8 border border-secondary/30">
-            <p className="text-lg italic mb-2"> Welcome to my creative studio!</p>
-            <p className="text-md">
-              Thanks for stopping by. I explore the intersection of art and artificial intelligence, 
-              using AI as both medium and collaborator. My work challenges traditional notions 
-              of creativity while exploring the evolving relationship between humans and machines.
-            </p>
-          </div>
-          <p className="text-lg text-muted-foreground mb-8">
-            I create art and experiences that leverage the power of large language models and generative 
-            AI. Through my work, I investigate themes of digital identity, algorithmic creativity, and 
-            the blurred boundaries between human and machine artistic expression. My approach balances 
-            technological innovation with artistic vision, creating works that are both conceptually rich 
-            and technically sophisticated.
-          </p>
-          <div className="flex gap-4 flex-wrap justify-center">
-            <Link 
-              href="/blog" 
-              className="btn btn-primary">
-              Read My Blog
-            </Link>
-            <Link 
-              href="/contact" 
-              className="btn btn-outline">
-              Get In Touch
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Recent Blog Posts Section */}
-      <section className="mb-20">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold">Recent Blog Posts</h2>
-          <Link href="/blog" className="text-primary hover:underline">
-            View All →
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {recentPosts.map((post) => (
-            <Link 
-              key={post.slug}
-              href={`/blog/${post.slug}`}
-              className="card p-6 transition-all hover:shadow-md"
-            >
-              <h3 className="text-xl font-bold mb-3 line-clamp-2">{post.title}</h3>
-              
-              {/* Display technologies/categories as tags */}
-              {post.categories && post.categories.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {post.categories.map((category: string, idx: number) => (
-                    <span 
-                      key={idx} 
-                      className="inline-block text-xs px-2 py-1 bg-primary/10 text-primary rounded-full"
-                    >
-                      {category}
-                    </span>
-                  ))}
-                </div>
-              )}
-              
-              <p className="text-sm text-muted-foreground mb-3">
-                {new Date(post.date).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </p>
-              
-              {post.excerpt && (
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {post.excerpt}
-                </p>
-              )}
-            </Link>
-          ))}
-        </div>
-      </section>
-
-
-    </div>
+    <ClientHomePage 
+      recentPosts={recentPosts}
+      projects={projects}
+      technologies={technologies}
+    />
   );
 }

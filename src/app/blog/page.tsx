@@ -8,6 +8,7 @@ import CategoryFilter from "@/components/CategoryFilter";
 import InfiniteScroll from "@/components/InfiniteScroll";
 import { PostMetadata, TaxonomyItem } from "@/types/blog";
 import FeaturedPosts from "@/components/FeaturedPosts";
+import PageTransition from "@/components/PageTransition";
 
 // Separate viewport export as recommended by Next.js
 export const viewport = {
@@ -113,7 +114,8 @@ export default function BlogPage() {
   const featuredPosts = getFeaturedPosts(posts);
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <PageTransition transitionType="slide">
+      <div className="container mx-auto px-4 py-12">
       <h1 className="text-4xl font-bold mb-8">Blog</h1>
       <p className="text-lg text-muted-foreground mb-12 max-w-2xl">
         Thoughts, insights, and tutorials on AI development, 
@@ -147,6 +149,7 @@ export default function BlogPage() {
           postsPerPage={9}
         />
       </div>
-    </div>
+      </div>
+    </PageTransition>
   );
 }

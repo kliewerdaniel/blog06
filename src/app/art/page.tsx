@@ -1,6 +1,9 @@
+import PageTransition from "@/components/PageTransition";
+
 export default function ArtGallery() {
   return (
-    <div className="container py-12">
+    <PageTransition transitionType="scale">
+      <div className="container py-12">
       <h1 className="text-3xl font-bold mb-8">Art Gallery</h1>
       
       <p className="text-lg mb-8">
@@ -213,6 +216,7 @@ export default function ArtGallery() {
           <p className="mt-2 text-center text-sm text-gray-600">Artwork 34</p>
         </div>
       </div>
-    </div>
+      </div>
+    </PageTransition>
   );
 }

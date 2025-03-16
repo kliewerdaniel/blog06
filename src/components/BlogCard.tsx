@@ -38,9 +38,9 @@ const BlogCard: React.FC<BlogCardProps> = ({ post, content = '' }) => {
   return (
     <Link 
       href={`/blog/${post.slug}`}
-      className="card overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300"
+      className="card overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm"
     >
-      <div className="aspect-w-16 aspect-h-9 relative">
+      <div className="aspect-w-16 aspect-h-9 relative card-zoom-image">
         {hasImage ? (
           <Image 
             src={imageSrc}
