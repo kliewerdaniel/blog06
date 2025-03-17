@@ -186,9 +186,6 @@ function Header() {
           Daniel Kliewer
         </Link>
         
-        {/* Mobile Navigation - Using our new component */}
-        <MobileMenu />
-        
         {/* Desktop Navigation */}
         <nav className="hidden md:block">
           <ul className="flex gap-6 stagger-animation">
@@ -214,6 +211,11 @@ function Header() {
             </li>
           </ul>
         </nav>
+      </div>
+      
+      {/* Mobile Navigation - Using our horizontal menu component */}
+      <div className="md:hidden">
+        <MobileMenu />
       </div>
     </header>
   );
