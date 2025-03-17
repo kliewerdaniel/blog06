@@ -93,42 +93,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Simple error fix - just catch the animation frame errors */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-            /**
-             * Simple fix for "eP[i] is not a function" error in animation frames
-             */
-            (function() {
-                console.log("[Animation Fix] Initializing simple error prevention");
-                
-                // Store original method
-                const originalRequestAnimationFrame = window.requestAnimationFrame;
-                
-                // Replace with error-catching version
-                window.requestAnimationFrame = function(callback) {
-                    // Wrap the callback in a try-catch
-                    const safeCallback = function(timestamp) {
-                        try {
-                            return callback(timestamp);
-                        } catch (error) {
-                            if (error.message && error.message.includes('is not a function')) {
-                                console.warn("[Animation Fix] Caught error:", error.message);
-                                return null;
-                            }
-                            throw error; // Re-throw other errors
-                        }
-                    };
-                    
-                    return originalRequestAnimationFrame.call(window, safeCallback);
-                };
-                
-                console.log("[Animation Fix] Simple fix installed successfully");
-            })();
-            `
-          }}
-        />
         {/* Google Tag Manager */}
         <script
           dangerouslySetInnerHTML={{

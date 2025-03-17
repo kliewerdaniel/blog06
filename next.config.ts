@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Force consistent output regardless of environment to avoid hydration mismatches
+  // Configure output for Netlify deployment
   output: "export",
   
   // Configure images to work with export
