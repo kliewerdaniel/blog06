@@ -72,7 +72,7 @@ export default function ClientHomePage({ recentPosts, projects, technologies }: 
               transition={{ duration: 0.5, delay: 0.4 }}
               className="bg-secondary/10 backdrop-blur-sm p-8 rounded-2xl mb-8 border border-secondary/20 shadow-lg"
             >
-              <p className="text-lg italic mb-4">Welcome to my creative studio!</p>
+
               <p className="text-md mb-4">
                 I explore the intersection of art and artificial intelligence, 
                 using AI as both medium and collaborator. My work challenges traditional notions 
