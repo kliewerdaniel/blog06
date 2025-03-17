@@ -49,10 +49,7 @@ export const metadata: Metadata = {
       'max-image-preview': 'large',
       'max-snippet': -1,
     },
-  },
-  verification: {
-    google: "GTM-T5J5JWX", // Replace with actual verification code if available
-  },
+  }
 };
 
 // Function to get blog posts
