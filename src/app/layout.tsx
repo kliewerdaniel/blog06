@@ -4,7 +4,6 @@ import Link from "next/link";
 import "./globals.css";
 import "../styles/codeHighlight.css";
 import "../styles/animations.css";
-import AnalyticsTracker from "@/components/AnalyticsTracker";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import MotionProvider from "@/components/MotionProvider";
 
@@ -161,20 +160,9 @@ export default function RootLayout({
         className={bodyClasses}
         suppressHydrationWarning={true}
       >
-        {/* Google Tag Manager (noscript) */}
-        <noscript>
-          <iframe 
-            src="https://www.googletagmanager.com/ns.html?id=GTM-T5J5JWX"
-            height="0" 
-            width="0" 
-            style={{ display: 'none', visibility: 'hidden' }}
-            title="Google Tag Manager"
-          />
-        </noscript>
-        {/* End Google Tag Manager (noscript) */}
-        
+       
         {/* Component to track page views across route changes */}
-        <AnalyticsTracker />
+
         
         {/* Animated Background - applied to all pages */}
         <AnimatedBackground type="geometric" intensity="moderate" colors={['#000000', '#ffffff']} isBlackAndWhite={true} />
