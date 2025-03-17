@@ -6,6 +6,7 @@ import "../styles/codeHighlight.css";
 import "../styles/animations.css";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import MotionProvider from "@/components/MotionProvider";
+import MobileMenu from "@/components/MobileMenu";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -185,39 +186,8 @@ function Header() {
           Daniel Kliewer
         </Link>
         
-        {/* Mobile Navigation - Hamburger Menu */}
-        <nav className="mobile-nav md:hidden">
-          <input type="checkbox" id="nav-toggle" className="nav-toggle sr-only" />
-          <label htmlFor="nav-toggle" className="nav-toggle-label" aria-label="Toggle navigation menu">
-            <span className="hamburger">
-              <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
-            </span>
-          </label>
-          <ul className="mobile-menu">
-            <li>
-              <Link href="/" className="mobile-link">
-                Home
-              </Link>
-            </li>
-            <li>
-              <Link href="/about" className="mobile-link">
-                About
-              </Link>
-            </li>
-            <li>
-              <Link href="/blog" className="mobile-link">
-                Blog
-              </Link>
-            </li>
-            <li>
-              <Link href="/art" className="mobile-link">
-                Art
-              </Link>
-            </li>
-          </ul>
-        </nav>
+        {/* Mobile Navigation - Using our new component */}
+        <MobileMenu />
         
         {/* Desktop Navigation */}
         <nav className="hidden md:block">
