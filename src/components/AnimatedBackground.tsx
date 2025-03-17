@@ -153,7 +153,7 @@ export default function AnimatedBackground({
       shapes.push(
         <motion.div
           key={i}
-          className={`absolute ${shapeType === 0 ? 'rounded-full' : shapeType === 1 ? '' : 'clip-triangle'}`}
+          className={`absolute ${shapeType === 0 ? 'rounded-full' : ''}`}
           style={{
             left: `${posX}%`,
             top: `${posY}%`,
@@ -162,12 +162,15 @@ export default function AnimatedBackground({
             backgroundColor: isEven ? '#000000' : '#ffffff',
             opacity: opacity,
             border: `1px solid ${isEven ? '#ffffff' : '#000000'}`,
-            transform: `rotate(${rotationStart}deg)`,
+            clipPath: shapeType === 2 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'none',
+          }}
+          initial={{
+            rotate: rotationStart,
           }}
           animate={{
             opacity: [0.04, 0.07, 0.04],
             scale: [1, 1.05, 1],
-            rotate: `${rotationEnd}deg`,
+            rotate: rotationEnd,
           }}
           transition={{
             duration: duration,
