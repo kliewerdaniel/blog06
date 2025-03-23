@@ -12,7 +12,7 @@ This comprehensive guide presents a production-grade, locally-hosted document pr
 
 ## 📋 Architecture Overview
 
-```
+
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │                 │    │                 │    │                 │    │                 │
 │  Document       │─→  │  Extraction     │─→  │  Semantic       │─→  │  Storage &      │
@@ -25,7 +25,7 @@ This comprehensive guide presents a production-grade, locally-hosted document pr
                             │             Transformation Layer                │
                             │                                                 │
                             └─────────────────────────────────────────────────┘
-```
+
 
 ## 1. High-Fidelity Document Extraction System
 
