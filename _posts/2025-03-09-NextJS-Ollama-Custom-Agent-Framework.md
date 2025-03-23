@@ -3,7 +3,7 @@ layout: post
 title:  Building an AI-Powered Next.js Application with Custom Agent Framework, and Ollama
 date:   2025-03-09 08:42:44 -0500
 ---
-# Building an AI-Powered Next.js Application with Custonm Agent Framework, and Ollama
+# Building an AI-Powered Next.js Application with Custom Agent Framework, and Ollama
 
 ## 1. Introduction
 
