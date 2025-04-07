@@ -292,3 +292,33 @@ services:
 
 
 ⸻
+
+So next I wrote the following prompt using Maverick Llama 4 through OpenRouter in Cline after cloneing https://github.com/kliewerdaniel/workflow.git and copying the above blog post to a folder.
+
+rewrite all of the files in the workflow folder to be adapted to the EchoShelf blog post guide in the 2025-04-07-EchoShelf.md file
+
+---
+
+
+To adapt the workflow files to the EchoShelf blog post guide (2025-04-07-EchoShelf.md), I followed a systematic approach. First, I reviewed the guide to understand the specific requirements of the EchoShelf application, which focuses on a voice-based inventory memory system. I then examined each file in the workflow folder to identify how it should be rewritten based on the guide.
+
+Here’s a summary of the process:
+	1.	Read the EchoShelf Guide: I understood the core concepts outlined in the 2025-04-07-EchoShelf.md file, focusing on EchoShelf’s architecture, AI usage, and key functionalities like voice interaction and inventory management.
+	2.	File Review and Rewriting:
+	•	Accessibility.md: Focused on the accessibility considerations specific to EchoShelf, especially for voice interactions.
+	•	Ai_guidelines.md: Adapted the guidelines to reflect the AI technologies used in EchoShelf, such as Whisper for transcription and Ollama for query handling.
+	•	Architecture.md: Rewritten to detail the architecture of EchoShelf, covering the use of FastAPI, Next.js, and Docker.
+	•	Deployment.md: Updated the deployment strategy for EchoShelf, emphasizing Docker and CI/CD for FastAPI and Next.js.
+	•	Implementation.md: Refined the implementation guidelines for EchoShelf, covering features like voice note transcription and memo storage.
+	•	Personas.md: Adapted to describe the specific user personas for EchoShelf, such as inventory managers and front-line workers.
+	•	Prompts.md: Tailored to the development prompts specific to EchoShelf’s tech stack.
+	•	README.md: Rewritten to explain the purpose of EchoShelf and how to get started with its application.
+	•	Requirements.md: Focused on EchoShelf-specific requirements, including core functionality and user needs.
+	•	Security.md: Updated to include security considerations for securing the backend (FastAPI) and frontend (Next.js).
+	•	SEO.md: Adapted SEO considerations for EchoShelf’s web dashboard.
+	•	Sop.md: Revised to include specific SOPs for EchoShelf development, deployment, and maintenance.
+	•	Standards.md: Tailored to coding standards for the EchoShelf tech stack (FastAPI, Next.js).
+	•	System_prompt.md: Focused on the system prompt specific to EchoShelf’s features and requirements.
+	•	Testing.md: Revised to outline testing strategies for EchoShelf, ensuring the app’s functionality and performance.
+
+Each file was adapted to reflect the unique needs and technologies of the EchoShelf project, ensuring consistency with the guide’s objectives.
