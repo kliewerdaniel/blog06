@@ -293,32 +293,163 @@ services:
 
 ⸻
 
-So next I wrote the following prompt using Maverick Llama 4 through OpenRouter in Cline after cloneing https://github.com/kliewerdaniel/workflow.git and copying the above blog post to a folder.
+## Full Application Architecture
 
-rewrite all of the files in the workflow folder to be adapted to the EchoShelf blog post guide in the 2025-04-07-EchoShelf.md file
+### System Overview
+```mermaid
+graph LR
+    A[Frontend] -->|Voice Memo| B(Backend API)
+    B --> C[Whisper Transcription]
+    C --> D[Ollama Tagging]
+    D --> E[(SQLite Database)]
+    E --> F[Daily Cron Job]
+    F --> G[Report Generator]
+    G --> H[Email/SMS/Dashboard]
+```
+
+## Core Components Deep Dive
+
+### Voice Processing Pipeline
+1. **Audio Capture** - Web Audio API in React frontend
+2. **Noise Reduction** - WebAssembly-based preprocessing
+3. **Whisper Transcribe** - Local model running in Docker
+4. **Context Tagging** - Ollama LLM extracts entities:
+   ```python
+   def extract_entities(transcript):
+       prompt = f"""Extract from inventory note: {transcript}
+       Return JSON with: item, location, reason, action"""
+       response = ollama.generate(model='mistral', prompt=prompt)
+       return parse_json(response)
+   ```
+
+### Daily Sync System
+**Cron Job Flow**:
+```mermaid
+sequenceDiagram
+    Cron->>Database: Query new memos (last 24h)
+    Database->>LLM: Send memos for summarization
+    LLM->>Report: Generate markdown report
+    Report->>Email: Send to team@
+    Report->>Dashboard: Update web view
+```
+
+## Deployment Architecture
+
+### Production Environment Setup
+```yml
+# Enhanced docker-compose.yml
+services:
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+
+  backend:
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
+```
+
+## Security Model
+
+1. **Role-Based Access Control**
+```python
+# Example FastAPI middleware
+async def verify_role(request: Request):
+    user = get_current_user()
+    if request.url.path.startswith("/admin") and not user.is_manager:
+        raise HTTPException(403)
+```
+
+2. **Data Encryption**
+- AES-256 for voice memos at rest
+- TLS 1.3 for all API communications
+- GPG-encrypted daily reports
+
+## Monitoring & Alerting
+
+**Prometheus Metrics Endpoint**:
+```python
+@app.get("/metrics")
+async def metrics():
+    return {
+        "memos_today": count_memos(),
+        "avg_processing_time": get_avg_time(),
+        "storage_usage": get_db_size()
+    }
+```
+
+## Roadmap & Scaling
+
+| Quarter | Feature                  | Tech Stack        |
+|---------|--------------------------|-------------------|
+| Q3 2025 | Real-time Voice Analysis | WebRTC, RabbitMQ  |
+| Q4 2025 | Barcode Scanning         | ZXing, OpenCV     |
+| Q1 2026 | Mobile Offline Support   | React Native, Couchbase |
+| Q2 2026 | Predictive Analytics     | PyTorch Forecasting |
 
 ---
 
+## Full System Documentation
 
-To adapt the workflow files to the EchoShelf blog post guide (2025-04-07-EchoShelf.md), I followed a systematic approach. First, I reviewed the guide to understand the specific requirements of the EchoShelf application, which focuses on a voice-based inventory memory system. I then examined each file in the workflow folder to identify how it should be rewritten based on the guide.
+### API Endpoints Reference
 
-Here’s a summary of the process:
-	1.	Read the EchoShelf Guide: I understood the core concepts outlined in the 2025-04-07-EchoShelf.md file, focusing on EchoShelf’s architecture, AI usage, and key functionalities like voice interaction and inventory management.
-	2.	File Review and Rewriting:
-	•	Accessibility.md: Focused on the accessibility considerations specific to EchoShelf, especially for voice interactions.
-	•	Ai_guidelines.md: Adapted the guidelines to reflect the AI technologies used in EchoShelf, such as Whisper for transcription and Ollama for query handling.
-	•	Architecture.md: Rewritten to detail the architecture of EchoShelf, covering the use of FastAPI, Next.js, and Docker.
-	•	Deployment.md: Updated the deployment strategy for EchoShelf, emphasizing Docker and CI/CD for FastAPI and Next.js.
-	•	Implementation.md: Refined the implementation guidelines for EchoShelf, covering features like voice note transcription and memo storage.
-	•	Personas.md: Adapted to describe the specific user personas for EchoShelf, such as inventory managers and front-line workers.
-	•	Prompts.md: Tailored to the development prompts specific to EchoShelf’s tech stack.
-	•	README.md: Rewritten to explain the purpose of EchoShelf and how to get started with its application.
-	•	Requirements.md: Focused on EchoShelf-specific requirements, including core functionality and user needs.
-	•	Security.md: Updated to include security considerations for securing the backend (FastAPI) and frontend (Next.js).
-	•	SEO.md: Adapted SEO considerations for EchoShelf’s web dashboard.
-	•	Sop.md: Revised to include specific SOPs for EchoShelf development, deployment, and maintenance.
-	•	Standards.md: Tailored to coding standards for the EchoShelf tech stack (FastAPI, Next.js).
-	•	System_prompt.md: Focused on the system prompt specific to EchoShelf’s features and requirements.
-	•	Testing.md: Revised to outline testing strategies for EchoShelf, ensuring the app’s functionality and performance.
+| Endpoint       | Method | Description                 |
+|----------------|--------|-----------------------------|
+| /api/memos     | POST   | Submit new voice memo       |
+| /api/reports   | GET    | Retrieve generated reports  |
+| /api/items     | GET    | Search inventory items      |
 
-Each file was adapted to reflect the unique needs and technologies of the EchoShelf project, ensuring consistency with the guide’s objectives.
+### Database Schema
+
+```sql
+CREATE TABLE memos (
+    id INTEGER PRIMARY KEY,
+    item TEXT NOT NULL,
+    location TEXT NOT NULL,
+    transcript TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    resolved BOOLEAN DEFAULT 0
+);
+
+CREATE INDEX idx_memos_location ON memos(location);
+```
+
+### Error Handling Guide
+
+```python
+@app.exception_handler(TranscriptionError)
+async def handle_transcription_error(request, exc):
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Audio processing failed"},
+    )
+```
+
+## Maintenance Procedures
+
+1. **Database Backup**
+```bash
+# Daily backup script
+sqlite3 data.db ".backup backup-$(date +%F).db"
+aws s3 cp backup-*.db s3://echoshelf-backups/
+```
+
+2. **Model Updates**
+```dockerfile
+# Whisper update workflow
+RUN whisper-download --model large-v3
+RUN ollama pull llama2:13b
+```
+
+---
+
+_This completes the full technical documentation and implementation guide for EchoShelf. The system is now ready for deployment and team onboarding._
+
+
+
+
+---
