@@ -62,7 +62,7 @@ Notes entered by: Daniel, Jamie
 ---
 
 ## Project Structure
-
+```plaintext
 /EchoShelf
 ├── /backend
 │   ├── /src
@@ -90,7 +90,7 @@ Notes entered by: Daniel, Jamie
 ├── /docs
 │   ├── /README.md             # Documentation
 ├── docker-compose.yml         # Docker Compose configuration for full stack
-
+```
 ---
 
 ## Backend Setup (FastAPI with Whisper + Ollama)
