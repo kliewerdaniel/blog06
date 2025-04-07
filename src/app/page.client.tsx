@@ -278,7 +278,7 @@ export default function ClientHomePage({ recentPosts, projects, technologies }: 
         </section>
 
         {/* Shopify Product Section */}
-        <section className="py-16 container mx-auto px-4">
+        <section className="py-16 container mx-auto px-4 text-center">
           <div className="max-w-4xl mx-auto text-center">
             <div id='product-component-1744048152739'></div>
           </div>
