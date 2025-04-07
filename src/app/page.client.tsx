@@ -279,8 +279,7 @@ export default function ClientHomePage({ recentPosts, projects, technologies }: 
 
         {/* Shopify Product Section */}
         <section className="py-16 container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-8">My Latest AI Art Collection</h2>
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-4xl mx-auto text-center">
             <div id='product-component-1744048152739'></div>
           </div>
           
